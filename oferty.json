@@ -1,0 +1,855 @@
+{
+  "metadata": {
+    "source": "Expander - zestawienie ofert kredytów hipotecznych",
+    "generated_at": "2026-05-10",
+    "currency": "PLN",
+    "notes": "Wszystkie stopy procentowe jako liczby dziesiętne (0.0544 = 5.44%). Bazy naliczania: 'loan_amount' = kwota kredytu brutto, 'property_value' = wartość zabezpieczenia, 'outstanding_balance' = aktualne saldo zadłużenia."
+  },
+  "loan_params": {
+    "gross_amount_default": 800000,
+    "property_value": 1035000,
+    "ltv_default": 0.7729,
+    "term_months": 300
+  },
+  "offers": [
+    {
+      "id": "pko_bp_grupy_zawodowe_v1_zmienne",
+      "bank": "PKO BP",
+      "product_name": "Oferta Specjalna dla Grup zawodowych - wariant 1",
+      "rate_type": "variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.0155,
+          "reference_rate": "WIBOR_6M",
+          "reference_value": 0.0389,
+          "nominal_rate": 0.0544
+        }
+      ],
+      "aprc": 0.061,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 300, "amount": 4884.08 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 700,
+        "life_insurance_first_12m_lump": 3360,
+        "credit_protection_insurance": 0,
+        "total": 4060
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.0008,
+          "base": "loan_amount",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 640,
+          "total_over_term": 15999.99,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 12, "type": "lump_sum_upfront", "amount": 3360, "note": "0,42% kwoty kredytu za pierwsze 12M, płatne z góry" },
+          { "from_month": 13, "to_month": 300, "type": "monthly_pct", "rate": 0.00035, "base": "outstanding_balance", "avg_monthly": 172.18, "total_for_period": 49587.84 }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1534870.63,
+        "total_costs": 734870.63,
+        "total_interest": 665222.80
+      },
+      "conditions": {
+        "required_products": ["mKonto/account_3000_inflow", "life_insurance_bank_full_term"],
+        "penalties": [
+          { "trigger": "drop_life_insurance", "effect": "margin_increase_pp", "value": 0.002 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300, "note": "Brak opłat przez cały okres" },
+        "life_insurance_creditable": false,
+        "notes": "Oferta dla grup zawodowych. FI wygenerowane 12.02.2026 - 02.07.2026. Brak możliwości łączenia z innymi promocjami."
+      }
+    },
+    {
+      "id": "mbank_intensive_zmienne",
+      "bank": "mBank",
+      "product_name": "Oferta promocyjna Segment Intensive",
+      "rate_type": "variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.016,
+          "reference_rate": "WIBOR_3M",
+          "reference_value": 0.0384,
+          "nominal_rate": 0.0544
+        }
+      ],
+      "aprc": 0.0602,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 300, "amount": 4884.08 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 700,
+        "total": 700
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.000794,
+          "base": "property_value",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 821.79,
+          "total_over_term": 20544.75,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 60, "type": "monthly_pct", "rate": 0.0005, "base": "outstanding_balance", "avg_monthly": 379.72, "total_for_period": 22783.20, "note": "Wymagane przez 60 mies. Rezygnacja przed 60M = marża standardowa." }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1509250.75,
+        "total_costs": 709250.75,
+        "total_interest": 665222.80
+      },
+      "conditions": {
+        "required_products": ["mKonto_Intensive_10000_zl_inflow", "life_insurance_bank_60m"],
+        "penalties": [
+          { "trigger": "drop_life_insurance_before_60m", "effect": "margin_to_standard", "value": null },
+          { "trigger": "drop_account_before_5y", "effect": "margin_to_standard", "value": null },
+          { "trigger": "criteria_check_failed", "effect": "rate_increase_pp", "value": 0.02, "note": "Kontrola co 6 mies." }
+        ],
+        "discounts": [
+          { "trigger": "active_client_6m", "effect": "margin_decrease_pp", "value": 0.001 }
+        ],
+        "early_repayment_fee": { 
+          "fee_pct": 0.03, 
+          "period_months": 36, 
+          "note": "Pierwsze 36M: mniejsza z 3% spłacanej kwoty lub odsetki za rok. Częściowa nadpłata bezpłatna." 
+        },
+        "partial_overpayment_fee": 0
+      }
+    },
+    {
+      "id": "pekao_sluzby_mundurowe_cpi_zmienne",
+      "bank": "Pekao SA",
+      "product_name": "2A/OS/2026 dla Służb Mundurowych i grup zawodowych z CPI_zmienne",
+      "rate_type": "variable",
+      "loan_amount": 815724.80,
+      "ltv": 0.7881,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.015,
+          "reference_rate": "WIBOR_1M",
+          "reference_value": 0.0376,
+          "nominal_rate": 0.0526
+        }
+      ],
+      "aprc": 0.0579,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 300, "amount": 4893.03 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 740,
+        "job_loss_insurance_credited": 15724.80,
+        "total": 740,
+        "note": "Ubezpieczenie od utraty pracy 15724.80 zł skredytowane (wliczone do kwoty kredytu)"
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.001,
+          "base": "loan_amount",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 800,
+          "total_over_term": 20000.01,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 300, "type": "client_provided", "note": "Polisa własna klienta, min. 25% kwoty kredytu, koszt po stronie klienta" }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1488647.78,
+        "total_costs": 672922.98,
+        "total_interest": 652182.97
+      },
+      "conditions": {
+        "required_products": ["account_3000_inflow", "PeoPay_app", "property_insurance_bank", "marketing_consent"],
+        "penalties": [
+          { "trigger": "drop_property_insurance", "effect": "margin_increase_pp", "value": 0.001 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "ing_wiosna_lat_start_zmienne",
+      "bank": "ING Bank Śląski",
+      "product_name": "Wiosna na swoim z prowizją 0% Łatwy start opr. zmienne",
+      "rate_type": "variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.0173,
+          "reference_rate": "WIBOR_1M",
+          "reference_value": 0.0376,
+          "nominal_rate": 0.0549
+        }
+      ],
+      "aprc": 0.0601,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 300, "amount": 4907.92 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 870,
+        "total": 870
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.000096,
+          "base": "loan_amount",
+          "frequency": "monthly",
+          "from_month": 1,
+          "to_month": 300,
+          "monthly_amount": 76.80,
+          "total_over_term": 23040,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 36, "type": "monthly_pct", "rate": 0.00055, "base": "outstanding_balance", "avg_monthly": 427.34, "total_for_period": 15384.24, "note": "Wymagane 36 mies. Po tym okresie rezygnacja bez zmian cenowych." }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1511671.29,
+        "total_costs": 711671.29,
+        "total_interest": 672377.05
+      },
+      "conditions": {
+        "required_products": ["account_2000_inflow", "life_insurance_bank_36m", "mobile_app", "behavioral_verification"],
+        "penalties": [],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "velobank_velodom_profesjonalisci_zmienne",
+      "bank": "VeloBank",
+      "product_name": "Oferta VeloDom z prowizją 0% i x-sellem dla Profesjonalistów - opr. zmienne",
+      "rate_type": "variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.0175,
+          "reference_rate": "WIBOR_1M",
+          "reference_value": 0.0376,
+          "nominal_rate": 0.0551
+        }
+      ],
+      "aprc": 0.0591,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 300, "amount": 4917.48 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 0,
+        "property_valuation_note": "po stronie klienta",
+        "total": 0
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.000426,
+          "base": "property_value",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 440.91,
+          "total_over_term": 11022.75,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 60, "type": "monthly_pct", "rate": 0.00030129, "base": "loan_amount", "avg_monthly": 240.96, "total_for_period": 14457.60, "note": "Wymagane 5 lat. Rezygnacja = marża standardowa." }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1500723.93,
+        "total_costs": 700723.93,
+        "total_interest": 675243.58
+      },
+      "conditions": {
+        "required_products": ["account_with_package_5y", "life_insurance_5y_with_employment_loss"],
+        "penalties": [
+          { "trigger": "drop_required_products_before_5y", "effect": "margin_to_standard", "value": null }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "pko_bp_grupy_zawodowe_v2_zmienne",
+      "bank": "PKO BP",
+      "product_name": "Oferta Specjalna dla Grup zawodowych - wariant 2",
+      "rate_type": "variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.0185,
+          "reference_rate": "WIBOR_6M",
+          "reference_value": 0.0389,
+          "nominal_rate": 0.0574
+        }
+      ],
+      "aprc": 0.0614,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 300, "amount": 5028.02 }
+      ],
+      "upfront_costs": {
+        "commission": 8000,
+        "commission_pct": 0.01,
+        "property_valuation": 700,
+        "total": 8700
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.0008,
+          "base": "loan_amount",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 640,
+          "total_over_term": 15999.99,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 300, "type": "optional", "amount": 0, "note": "Dobrowolne, własne, nie uwzględnione w kosztach" }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1533105.39,
+        "total_costs": 733105.39,
+        "total_interest": 708405.40
+      },
+      "conditions": {
+        "required_products": ["account_3000_inflow"],
+        "penalties": [],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "pekao_sluzby_mundurowe_bez_cpi_stale",
+      "bank": "Pekao SA",
+      "product_name": "2A/OS/2026 dla Służb Mundurowych i grup zawodowych bez CPI_stałe",
+      "rate_type": "fixed_then_variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 60,
+          "type": "fixed",
+          "nominal_rate": 0.059
+        },
+        {
+          "from_month": 61,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.018,
+          "reference_rate": "WIBOR_1M",
+          "reference_value": 0.0376,
+          "nominal_rate": 0.0556
+        }
+      ],
+      "aprc": 0.0612,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 60, "amount": 5105.62 },
+        { "from_month": 61, "to_month": 300, "amount": 4966.29 }
+      ],
+      "upfront_costs": {
+        "commission": 7200,
+        "commission_pct": 0.009,
+        "property_valuation": 740,
+        "total": 7940
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.001,
+          "base": "loan_amount",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 800,
+          "total_over_term": 20000.01,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 300, "type": "client_provided", "note": "Polisa własna, min. 25% kwoty kredytu" }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1526187.57,
+        "total_costs": 726187.57,
+        "total_interest": 698247.56
+      },
+      "conditions": {
+        "required_products": ["account_3000_inflow", "PeoPay", "property_insurance_bank"],
+        "penalties": [
+          { "trigger": "drop_property_insurance", "effect": "margin_increase_pp", "value": 0.001 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "erste_platinum_stale",
+      "bank": "Erste Bank",
+      "product_name": "Platinum klient wewnętrzny/zewnętrzny stałe %",
+      "rate_type": "fixed_then_variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 60,
+          "type": "fixed",
+          "nominal_rate": 0.0595
+        },
+        {
+          "from_month": 61,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.0175,
+          "reference_rate": "WIBOR_3M",
+          "reference_value": 0.0384,
+          "nominal_rate": 0.0559
+        }
+      ],
+      "aprc": 0.0628,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 60, "amount": 5129.99 },
+        { "from_month": 61, "to_month": 300, "amount": 4982.11 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "commission_pct": 0,
+        "commission_note": "0% pod warunkiem ubezpieczenia Spokojna Hipoteka",
+        "property_valuation": 880,
+        "total": 880
+      },
+      "recurring_costs": {
+        "bridge_insurance": {
+          "monthly_amount": 24.42,
+          "from_month": 1,
+          "to_month": 3,
+          "total": 73.26,
+          "note": "Podwyższenie marży o 0.05 p.p. do wpisu hipoteki"
+        },
+        "property_insurance": {
+          "rate": 0.0009,
+          "base": "property_value",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 931.50,
+          "total_over_term": 23287.50,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 60, "type": "monthly_pct", "rate": 0.00035, "base": "outstanding_balance", "avg_monthly": 266.75, "total_for_period": 16005, "note": "Spokojna Hipoteka. Obniża prowizję do 0." }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1543750.99,
+        "total_costs": 743750.99,
+        "total_interest": 703505.23
+      },
+      "conditions": {
+        "required_products": ["select_segment", "life_insurance_Spokojna_Hipoteka"],
+        "discounts": [
+          { "trigger": "credit_card_10_transactions_monthly", "effect": "margin_decrease_pp", "value": 0.001, "duration_months": 60 }
+        ],
+        "penalties": [
+          { "trigger": "drop_property_insurance", "effect": "rate_increase_pp", "value": 0.003 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "pko_bp_grupy_zawodowe_v1_stale",
+      "bank": "PKO BP",
+      "product_name": "Oferta Specjalna dla Grup zawodowych - wariant 1 stałe oprocentowanie",
+      "rate_type": "fixed_then_variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 60,
+          "type": "fixed",
+          "nominal_rate": 0.0597
+        },
+        {
+          "from_month": 61,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.0155,
+          "reference_rate": "WIBOR_6M",
+          "reference_value": 0.0389,
+          "nominal_rate": 0.0544
+        }
+      ],
+      "aprc": 0.0635,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 60, "amount": 5139.75 },
+        { "from_month": 61, "to_month": 300, "amount": 4922.58 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 700,
+        "life_insurance_first_12m_lump": 3360,
+        "total": 4060
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.0008,
+          "base": "loan_amount",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 640,
+          "total_over_term": 15999.99,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 12, "type": "lump_sum_upfront", "amount": 3360 },
+          { "from_month": 13, "to_month": 300, "type": "monthly_pct", "rate": 0.00035, "base": "outstanding_balance", "avg_monthly": 172.94, "total_for_period": 49806.72 }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1559670.72,
+        "total_costs": 759670.72,
+        "total_interest": 689804.01
+      },
+      "conditions": {
+        "required_products": ["account_3000_inflow", "life_insurance_bank_full_term"],
+        "penalties": [
+          { "trigger": "drop_life_insurance", "effect": "margin_increase_pp", "value": 0.002 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 },
+        "life_insurance_creditable": false
+      }
+    },
+    {
+      "id": "mbank_intensive_stale",
+      "bank": "mBank",
+      "product_name": "Oferta Promocyjna Stałe Oprocentowanie segment Intensive",
+      "rate_type": "fixed_then_variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 60,
+          "type": "fixed",
+          "nominal_rate": 0.0626
+        },
+        {
+          "from_month": 61,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.017,
+          "reference_rate": "WIBOR_3M",
+          "reference_value": 0.0384,
+          "nominal_rate": 0.0554
+        }
+      ],
+      "aprc": 0.0646,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 60, "amount": 5282.30 },
+        { "from_month": 61, "to_month": 300, "amount": 4983.62 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 700,
+        "total": 700
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.000794,
+          "base": "property_value",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 821.79,
+          "total_over_term": 20544.75,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 60, "type": "monthly_pct", "rate": 0.0005, "base": "outstanding_balance", "avg_monthly": 381.86, "total_for_period": 22911.60 }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1557162.67,
+        "total_costs": 757162.67,
+        "total_interest": 713006.32
+      },
+      "conditions": {
+        "required_products": ["mKonto_Intensive_10000_zl_inflow", "life_insurance_bank_5y"],
+        "penalties": [
+          { "trigger": "drop_life_insurance_before_60m", "effect": "margin_to_standard", "value": null },
+          { "trigger": "criteria_check_failed", "effect": "rate_increase_pp", "value": 0.02 }
+        ],
+        "discounts": [
+          { "trigger": "active_client_6m", "effect": "margin_decrease_pp", "value": 0.001 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 60, "note": "Bezpłatna przez pierwsze 5 lat. Późniejsza opłata regulowana aneksem." }
+      }
+    },
+    {
+      "id": "pekao_premium_16f_cpi_stale",
+      "bank": "Pekao SA",
+      "product_name": "Oferta PREMIUM 16F/OS/2026 z CPI ze stałym % i prowizją 0%",
+      "rate_type": "fixed_then_variable",
+      "loan_amount": 815724.80,
+      "ltv": 0.7881,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 60,
+          "type": "fixed",
+          "nominal_rate": 0.0619
+        },
+        {
+          "from_month": 61,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.0158,
+          "reference_rate": "WIBOR_1M",
+          "reference_value": 0.0376,
+          "nominal_rate": 0.0534
+        }
+      ],
+      "aprc": 0.0627,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 60, "amount": 5350.87 },
+        { "from_month": 61, "to_month": 300, "amount": 4993.72 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 740,
+        "job_loss_insurance_credited": 15724.80,
+        "total": 740
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.001,
+          "base": "loan_amount",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 800,
+          "total_over_term": 20000.01,
+          "source_type": "bank",
+          "required": "bank"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 300, "type": "optional", "amount": 0, "note": "Dobrowolne (CPI od utraty pracy jest osobno, skredytowane)" }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1540286.07,
+        "total_costs": 724561.27,
+        "total_interest": 703821.26
+      },
+      "conditions": {
+        "required_products": ["Konto_Swiat_Premium_10000_zl_inflow", "debit_card", "property_insurance_bank", "job_loss_insurance_CPI", "PeoPay", "marketing_consent"],
+        "discounts": [
+          { "trigger": "credit_card_5y", "effect": "margin_decrease_pp", "value": 0.001 }
+        ],
+        "penalties": [
+          { "trigger": "drop_property_insurance", "effect": "margin_increase_pp", "value": 0.001 },
+          { "trigger": "drop_job_loss_insurance", "effect": "margin_increase_pp", "value": 0.0015 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "pekao_16f_cpi_stale",
+      "bank": "Pekao SA",
+      "product_name": "Oferta 16F/OS/2026 z CPI ze stałym % i prowizją 0%",
+      "rate_type": "fixed_then_variable",
+      "loan_amount": 815724.80,
+      "ltv": 0.7881,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 60,
+          "type": "fixed",
+          "nominal_rate": 0.062
+        },
+        {
+          "from_month": 61,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.016,
+          "reference_rate": "WIBOR_1M",
+          "reference_value": 0.0376,
+          "nominal_rate": 0.0536
+        }
+      ],
+      "aprc": 0.0629,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 60, "amount": 5355.90 },
+        { "from_month": 61, "to_month": 300, "amount": 5002.68 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 740,
+        "job_loss_insurance_credited": 15724.80,
+        "total": 740
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.001,
+          "base": "loan_amount",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 800,
+          "total_over_term": 20000.01,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 300, "type": "optional", "amount": 0 }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1542737.68,
+        "total_costs": 727012.88,
+        "total_interest": 706272.87
+      },
+      "conditions": {
+        "required_products": ["account_3000_or_10000_inflow", "debit_card", "property_insurance_bank", "job_loss_insurance_CPI", "PeoPay"],
+        "discounts": [
+          { "trigger": "salary_inflow_10000", "effect": "margin_decrease_pp", "value": 0.0002 },
+          { "trigger": "credit_card_5y", "effect": "margin_decrease_pp", "value": 0.001 }
+        ],
+        "penalties": [
+          { "trigger": "drop_property_insurance", "effect": "margin_increase_pp", "value": 0.001 },
+          { "trigger": "drop_job_loss_insurance", "effect": "margin_increase_pp", "value": 0.0015 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "millennium_v2_stale",
+      "bank": "Millennium",
+      "product_name": "Oferta wariant 2_oproc. stałe",
+      "rate_type": "fixed_then_variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 60,
+          "type": "fixed",
+          "nominal_rate": 0.0656
+        },
+        {
+          "from_month": 61,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.02,
+          "reference_rate": "WIBOR_6M",
+          "reference_value": 0.0388,
+          "nominal_rate": 0.0588
+        }
+      ],
+      "aprc": 0.0692,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 60, "amount": 5431.69 },
+        { "from_month": 61, "to_month": 300, "amount": 5144.67 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 870,
+        "total": 870
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.000075,
+          "base": "property_value",
+          "frequency": "monthly",
+          "from_month": 1,
+          "to_month": 300,
+          "monthly_amount": 77.63,
+          "total_over_term": 23289,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 300, "type": "monthly_pct", "rate": 0.00035, "base": "outstanding_balance", "avg_monthly": 174.91, "total_for_period": 52473, "note": "Obniża marżę o 0.20 p.p. Wymagane 36M dla utrzymania obniżki." }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1637253.98,
+        "total_costs": 837253.98,
+        "total_interest": 760621.98
+      },
+      "conditions": {
+        "required_products": ["account", "debit_card_500_zl_monthly", "salary_inflow_2x_payment", "life_insurance"],
+        "discounts": [
+          { "trigger": "life_insurance_36m", "effect": "rate_decrease_pp", "value": 0.002 }
+        ],
+        "penalties": [
+          { "trigger": "drop_cross_sell_before_55m", "effect": "margin_to_standard", "value": null }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    }
+  ]
+}

@@ -1,0 +1,2911 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Porównywarka kredytów hipotecznych — pełny model</title>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --bg-panel: #161616;
+    --bg-row: #1a1a1a;
+    --bg-row-alt: #141414;
+    --bg-detail: #0f0f0f;
+    --border: #2a2a2a;
+    --border-strong: #3a3a3a;
+    --text: #e8e8e8;
+    --text-dim: #888;
+    --text-faint: #555;
+    --accent: #d4ff00;
+    --accent-dim: #8aa800;
+    --good: #4ade80;
+    --bad: #ef4444;
+    --warn: #f59e0b;
+    --info: #38bdf8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 16px;
+  }
+  h1 { font-family: 'Georgia', serif; font-size: 28px; font-weight: 400; letter-spacing: -0.5px; margin-bottom: 4px; }
+  h1 .accent { color: var(--accent); }
+  .subtitle { color: var(--text-dim); font-size: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+  
+  .toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar-spacer { flex: 1; }
+  
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .control { display: flex; flex-direction: column; gap: 4px; }
+  .control label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+  .control input[type="number"], .control input[type="range"], .control input[type="text"], .control select {
+    background: var(--bg);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 13px;
+    width: 100%;
+  }
+  .control input:focus, .control select:focus { outline: none; border-color: var(--accent); }
+  .control .value-display { color: var(--accent); font-weight: bold; font-size: 14px; }
+  
+  .scenario-buttons { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+  .btn {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    padding: 8px 14px;
+    font-family: inherit;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: bold; }
+  .btn.primary:hover { background: #b8e000; }
+  .btn.danger { color: var(--bad); border-color: var(--bad); }
+  .btn.danger:hover { background: var(--bad); color: var(--bg); }
+  .btn.small { padding: 4px 8px; font-size: 10px; }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+    font-size: 12px;
+  }
+  th {
+    background: #0a0a0a;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 10px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-strong);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  th:hover { color: var(--accent); }
+  th.sorted::after { content: ' ▾'; color: var(--accent); }
+  th.sorted.asc::after { content: ' ▴'; }
+  td { padding: 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tr.main-row:nth-child(4n+1) td { background: var(--bg-row); }
+  tr.main-row:nth-child(4n+3) td { background: var(--bg-row-alt); }
+  tr.main-row.best td { background: rgba(74, 222, 128, 0.08) !important; }
+  tr.main-row.worst td { background: rgba(239, 68, 68, 0.06) !important; }
+  tr.main-row.modified td { box-shadow: inset 3px 0 0 var(--warn); }
+  tr.main-row:hover td { background: #252525 !important; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.bank { color: var(--accent); font-weight: 600; }
+  td.product { color: var(--text-dim); font-size: 11px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+  td.tag { font-size: 10px; }
+  .tag-fixed { color: var(--info); }
+  .tag-variable { color: var(--warn); }
+  .rank { color: var(--text-faint); font-size: 10px; width: 28px; text-align: center; }
+  .rank.top1 { color: var(--good); font-weight: bold; }
+  .rank.top3 { color: var(--accent); }
+  
+  .expand-btn {
+    background: none;
+    border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    cursor: pointer;
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+    line-height: 1;
+    padding: 0;
+  }
+  .expand-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .expand-btn.expanded { color: var(--accent); border-color: var(--accent); }
+  
+  tr.detail-row { display: none; }
+  tr.detail-row.visible { display: table-row; }
+  tr.detail-row td {
+    background: var(--bg-detail) !important;
+    padding: 16px;
+    border-left: 3px solid var(--accent);
+    white-space: normal;
+  }
+  
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+  @media (max-width: 1100px) { .detail-grid { grid-template-columns: 1fr; } }
+  
+  .detail-section h3 {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-section .sub { font-size: 10px; color: var(--text-faint); margin-bottom: 8px; }
+  
+  .switch-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 12px; flex-wrap: wrap; }
+  .switch-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+  .switch-row label { cursor: pointer; flex: 1; min-width: 200px; }
+  .switch-row .effect { color: var(--bad); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .switch-row input[type="number"] {
+    width: 60px;
+    background: var(--bg);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    padding: 4px 6px;
+    font-family: inherit;
+    font-size: 11px;
+  }
+  
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 1100px) { .panels { grid-template-columns: 1fr; } }
+  
+  .panel { background: var(--bg-panel); border: 1px solid var(--border); padding: 16px; }
+  .panel h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dotted var(--border); font-size: 12px; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { color: var(--text-dim); }
+  .stat-value { font-variant-numeric: tabular-nums; }
+  
+  .info-box {
+    background: rgba(56, 189, 248, 0.06);
+    border-left: 3px solid var(--info);
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .info-box strong { color: var(--info); }
+  
+  .footnote { color: var(--text-faint); font-size: 10px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); line-height: 1.6; }
+  
+  details { margin-top: 16px; }
+  summary {
+    cursor: pointer;
+    color: var(--text-dim);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 8px 12px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+  }
+  summary:hover { color: var(--accent); }
+  
+  .heatmap-wrap { overflow-x: auto; }
+  .heatmap { min-width: 600px; }
+  .heatmap th, .heatmap td { text-align: center; padding: 6px 4px; font-size: 11px; cursor: default; }
+  .heatmap th { cursor: default; }
+  .heatmap td.cell { font-variant-numeric: tabular-nums; color: var(--text); }
+  
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 100;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 32px 16px;
+    overflow-y: auto;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal {
+    background: var(--bg-panel);
+    border: 1px solid var(--accent);
+    width: 100%;
+    max-width: 800px;
+    padding: 24px;
+  }
+  .modal h2 { font-family: 'Georgia', serif; font-size: 22px; margin-bottom: 4px; color: var(--accent); }
+  .modal .sub { color: var(--text-dim); font-size: 11px; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  
+  .form-section { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px dotted var(--border); }
+  .form-section:last-child { border-bottom: none; }
+  .form-section h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .form-grid.full { grid-template-columns: 1fr; }
+  .form-row label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .form-row .help { font-size: 10px; color: var(--text-faint); margin-top: 2px; }
+  .form-row input, .form-row select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  
+  .modal-actions { display: flex; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .modal-actions .spacer { flex: 1; }
+  
+  .badge {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--warn);
+    color: var(--bg);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-left: 6px;
+    font-weight: bold;
+  }
+  .badge.custom { background: var(--info); }
+  .badge.modified { background: var(--warn); }
+  
+  .storage-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .storage-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+  .storage-status.warn .dot { background: var(--warn); }
+</style>
+</head>
+<body>
+
+<h1>POROWNYWARKA <span class="accent">/</span> kredyt hipoteczny</h1>
+<div class="subtitle">13+ ofert · pełny model TCO · scenariusze WIBOR · nadpłaty · per-oferta przełączniki</div>
+
+<div class="toolbar">
+  <button class="btn primary" id="addOfferBtn">+ Dodaj nową ofertę</button>
+  <button class="btn" id="exportBtn">⬇ Eksportuj wszystkie oferty (JSON)</button>
+  <button class="btn" id="importBtn">⬆ Importuj z pliku JSON</button>
+  <input type="file" id="importFile" accept=".json" style="display:none">
+  <button class="btn danger" id="resetBtn">↺ Reset do oryginalnych danych</button>
+  <div class="toolbar-spacer"></div>
+  <span class="storage-status" id="storageStatus">
+    <span class="dot"></span>
+    <span id="storageStatusText">Sprawdzam...</span>
+  </span>
+</div>
+
+<div class="info-box">
+  <strong>Jak czytać tabelę:</strong> "Rata 1" to pierwsza miesięczna rata. "Rata po 5Y" to rata po przejściu na zmienne (dla ofert stałych). "Cashflow 5Y" to suma rzeczywistych wypływów (raty + ubezpieczenia + opłaty + nadpłaty + rekompensaty) w pierwszych 60 miesiącach. "TCO" to całkowity koszt jeśli trzymasz kredyt do końca. <strong>Kliknij ikonę ▸</strong> żeby modyfikować rezygnacje, kary i otworzyć harmonogram. Model jest zgodny z <strong>Ustawą o kredycie hipotecznym z 23.03.2017</strong> (rekompensata art. 40 - max 3% w 36mc dla zmiennej stopy).
+</div>
+
+<div class="controls">
+  <div class="control">
+    <label>WIBOR — szok (p.p.)</label>
+    <input type="range" id="wiborShock" min="-3" max="5" step="0.25" value="0">
+    <div class="value-display" id="wiborShockVal">+0.00 p.p.</div>
+  </div>
+  <div class="control">
+    <label>Kwota kredytu</label>
+    <input type="number" id="loanAmount" value="800000" step="10000">
+  </div>
+  <div class="control">
+    <label>Okres (miesięcy)</label>
+    <input type="number" id="termMonths" value="300" step="12" min="60" max="420">
+  </div>
+  <div class="control">
+    <label>Nadpłata miesięczna (zł)</label>
+    <input type="number" id="overpayMonthly" value="0" step="100" min="0">
+  </div>
+  <div class="control">
+    <label>Jednorazowa nadpłata (zł)</label>
+    <input type="number" id="overpayLump" value="0" step="10000" min="0">
+  </div>
+  <div class="control">
+    <label>...w miesiącu nr</label>
+    <input type="number" id="overpayMonth" value="12" step="1" min="1">
+  </div>
+  <div class="control">
+    <label>Tryb nadpłat</label>
+    <select id="overpayMode">
+      <option value="shorten" selected>Skróć okres (zachowaj ratę)</option>
+      <option value="reduce">Zmniejsz ratę (zachowaj okres)</option>
+    </select>
+  </div>
+  <div class="control" id="recalcModeWrap" style="display:none">
+    <label>Zachowanie nadpłaty miesięcznej</label>
+    <select id="overpayBehavior">
+      <option value="fixed" selected>Stała kwota (np. zawsze 1000 zł)</option>
+      <option value="constant_outflow">Stały wypływ (rata maleje → nadpłata rośnie)</option>
+      <option value="pct_of_payment">Procent raty (np. 20% aktualnej raty)</option>
+    </select>
+  </div>
+  <div class="control" id="recalcFreqWrap" style="display:none">
+    <label>Częstotliwość przeliczania raty</label>
+    <select id="recalcFreq">
+      <option value="manual" selected>Tylko po nadpłacie jednorazowej</option>
+      <option value="monthly">Co miesiąc</option>
+      <option value="quarterly">Co kwartał (3 mies.)</option>
+      <option value="yearly">Co rok (12 mies.)</option>
+    </select>
+  </div>
+  <div class="control" id="overpayPctWrap" style="display:none">
+    <label>Procent raty (gdy "procent raty")</label>
+    <input type="number" id="overpayPctOfPayment" value="20" step="5" min="1" max="100">
+  </div>
+</div>
+
+<details style="margin-bottom: 16px;">
+  <summary>⚖️ Ustawienia rekompensaty (art. 40 Ustawy o kredycie hipotecznym)</summary>
+  <div class="panel" style="margin-top: 8px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+      <div class="control">
+        <label>Pobierać rekompensatę?</label>
+        <select id="compensationEnabled">
+          <option value="true" selected>Tak (domyślnie banki pobierają)</option>
+          <option value="false">Nie (np. promocja banku)</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Stawka maks. (% — limit ustawowy: 3%)</label>
+        <input type="number" id="compensationRatePct" value="3.0" step="0.1" min="0" max="3">
+      </div>
+      <div class="control">
+        <label>Pobierać w okresie stałej stopy?</label>
+        <select id="compensationFixedEnabled">
+          <option value="false" selected>Nie (PKO, ING - nie pobierają)</option>
+          <option value="true">Tak (niektóre banki pobierają cały okres stałości)</option>
+        </select>
+      </div>
+    </div>
+    <p style="font-size: 11px; color: var(--text-dim); margin-top: 12px;">
+      <strong>Art. 40 Ustawy o kredycie hipotecznym (Dz.U. 2017 poz. 819):</strong> Bank może pobrać rekompensatę za nadpłatę kredytu ze zmienną stopą tylko w pierwszych 36 miesiącach od zawarcia umowy. Limit: min(3% spłacanej kwoty, odsetki które byłyby naliczone od spłaconej kwoty przez rok). Dla kredytów ze stałą stopą - bank MOŻE pobierać przez cały okres stałej stopy, ale praktyka różna (PKO BP zniosło, niektóre banki pobierają).
+    </p>
+  </div>
+</details>
+
+<div class="scenario-buttons">
+  <span style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); padding: 6px 4px;">Scenariusze WIBOR:</span>
+  <button class="btn" data-shock="-2">spadek -2pp</button>
+  <button class="btn" data-shock="-1">spadek -1pp</button>
+  <button class="btn active" data-shock="0">obecny</button>
+  <button class="btn" data-shock="1">wzrost +1pp</button>
+  <button class="btn" data-shock="2">wzrost +2pp</button>
+  <button class="btn" data-shock="3">szok +3pp</button>
+</div>
+
+<div style="overflow-x: auto;">
+<table id="mainTable">
+  <thead>
+    <tr>
+      <th class="rank">#</th>
+      <th style="width:30px"></th>
+      <th data-sort="bank">Bank</th>
+      <th data-sort="product">Produkt</th>
+      <th data-sort="rateType">Typ</th>
+      <th data-sort="firstRate" class="num">Rata 1</th>
+      <th data-sort="laterRate" class="num">Rata po 5Y</th>
+      <th data-sort="cf60" class="num">Cashflow 5Y</th>
+      <th data-sort="cf120" class="num">Cashflow 10Y</th>
+      <th data-sort="tco" class="num sorted">TCO</th>
+      <th data-sort="totalInterest" class="num">Odsetki</th>
+      <th data-sort="deltaMonths" class="num" title="Różnica liczby rat vs baseline (czysta oferta)">Δ rat</th>
+      <th data-sort="upfront" class="num">Koszty wstępne</th>
+      <th data-sort="aprc" class="num">RRSO</th>
+    </tr>
+  </thead>
+  <tbody id="tableBody"></tbody>
+</table>
+</div>
+
+<div class="panels">
+  <div class="panel">
+    <h2>📊 Najtańsza w bieżącym scenariuszu</h2>
+    <div id="bestStats"></div>
+  </div>
+  <div class="panel">
+    <h2>⚠️ Wrażliwość najlepszych ofert na WIBOR</h2>
+    <div class="heatmap-wrap">
+      <table class="heatmap" id="heatmap"></table>
+    </div>
+  </div>
+</div>
+
+<details>
+  <summary>📋 Metodologia, założenia i logika kar</summary>
+  <div class="panel" style="margin-top: 8px;">
+    <p style="margin-bottom: 10px;"><strong>Model rat:</strong> formuła annuitetowa <code>PMT = P·r·(1+r)^n / ((1+r)^n - 1)</code>. Dla ofert stałych przez 5 lat: pierwsze 60 rat na stopie stałej, potem WIBOR + marża.</p>
+    <p style="margin-bottom: 10px;"><strong>Per-oferta przełączniki:</strong> Każda oferta ma rozwijany panel z opcjami rezygnacji z produktów (ubezp. nieruchomości, ubezp. na życie, konto, x-sell). Rezygnacja w wybranym miesiącu uruchamia karę zdefiniowaną w warunkach oferty - najczęściej podwyżkę marży o 0.10-0.30 pp. Rezygnacja przed minimalnym okresem często skutkuje "powrotem do marży standardowej" (oszacowanie - sprawdź szczegóły w dokumentach).</p>
+    <p style="margin-bottom: 10px;"><strong>Edytor ofert:</strong> Klikając "+ Dodaj nową ofertę" lub "Edytuj parametry" w panelu oferty, możesz wprowadzić własne parametry. Zmiany zapisują się w localStorage przeglądarki. Zawsze eksportuj JSON jako backup - localStorage jest powiązany z przeglądarką i może zostać wyczyszczony.</p>
+    <p><strong>Czego model wciąż NIE liczy automatycznie:</strong> PCC (19 zł), opłat sądowych (200 zł), ubezpieczenia pomostowego (poza Erste), różnic regionalnych. Te koszty możesz dodać ręcznie w polu "Inne koszty wstępne" przy edycji oferty.</p>
+  </div>
+</details>
+
+<div class="footnote">
+  Dane źródłowe: zestawienie Expander Advisors. Wszystkie obliczenia mają charakter poglądowy — ostateczne warunki ustala bank po analizie zdolności kredytowej.
+</div>
+
+<div class="modal-overlay" id="offerModal">
+  <div class="modal">
+    <h2 id="modalTitle">Nowa oferta</h2>
+    <div class="sub" id="modalSub">Wprowadź parametry — model przeliczy się automatycznie</div>
+    
+    <div class="form-section">
+      <h3>Identyfikacja</h3>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Bank *</label>
+          <input type="text" id="f_bank" placeholder="np. PKO BP">
+        </div>
+        <div class="form-row">
+          <label>Nazwa produktu *</label>
+          <input type="text" id="f_product" placeholder="np. Oferta promocyjna 2026">
+        </div>
+      </div>
+    </div>
+    
+    <div class="form-section">
+      <h3>Parametry kredytu</h3>
+      <div class="form-grid three">
+        <div class="form-row">
+          <label>Kwota kredytu (zł) *</label>
+          <input type="number" id="f_loan" value="800000" step="1000">
+        </div>
+        <div class="form-row">
+          <label>Wartość zabezpieczenia (zł)</label>
+          <input type="number" id="f_propValue" value="1035000" step="1000">
+        </div>
+        <div class="form-row">
+          <label>Okres (miesięcy) *</label>
+          <input type="number" id="f_term" value="300" step="12">
+        </div>
+      </div>
+    </div>
+    
+    <div class="form-section">
+      <h3>Oprocentowanie</h3>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Typ oprocentowania *</label>
+          <select id="f_rateType">
+            <option value="variable">Zmienne (WIBOR + marża)</option>
+            <option value="fixed_then_variable">Stałe 5 lat → potem zmienne</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>RRSO (% — np. 6.10) *</label>
+          <input type="number" id="f_aprc" value="6.0" step="0.01">
+        </div>
+      </div>
+      
+      <div id="fixedSection" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dotted var(--border)">
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Stopa stała przez 5 lat (% — np. 5.95) *</label>
+            <input type="number" id="f_fixedRate" value="5.95" step="0.01">
+          </div>
+        </div>
+      </div>
+      
+      <div style="margin-top:12px; padding-top:12px; border-top:1px dotted var(--border)">
+        <div class="sub" style="margin-bottom:8px; color:var(--text-dim)">Po okresie stałym (lub od początku dla zmiennych):</div>
+        <div class="form-grid three">
+          <div class="form-row">
+            <label>Marża (% — np. 1.55) *</label>
+            <input type="number" id="f_margin" value="1.55" step="0.01">
+          </div>
+          <div class="form-row">
+            <label>WIBOR (% — np. 3.89) *</label>
+            <input type="number" id="f_wibor" value="3.89" step="0.01">
+          </div>
+          <div class="form-row">
+            <label>Typ WIBOR</label>
+            <select id="f_wiborType">
+              <option value="WIBOR_1M">WIBOR 1M</option>
+              <option value="WIBOR_3M">WIBOR 3M</option>
+              <option value="WIBOR_6M" selected>WIBOR 6M</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="form-section">
+      <h3>Koszty wstępne (jednorazowe)</h3>
+      <div class="form-grid three">
+        <div class="form-row">
+          <label>Prowizja (zł)</label>
+          <input type="number" id="f_commission" value="0" step="100">
+        </div>
+        <div class="form-row">
+          <label>Wycena (zł)</label>
+          <input type="number" id="f_valuation" value="700" step="50">
+        </div>
+        <div class="form-row">
+          <label>Inne koszty wstępne (zł)</label>
+          <input type="number" id="f_otherUpfront" value="0" step="100">
+          <div class="help">np. ryczałt ubezp., PCC, opłaty</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="form-section">
+      <h3>Ubezpieczenie nieruchomości</h3>
+      <div class="form-grid three">
+        <div class="form-row">
+          <label>Stawka (% — np. 0.08)</label>
+          <input type="number" id="f_propInsRate" value="0.08" step="0.0001">
+        </div>
+        <div class="form-row">
+          <label>Baza naliczania</label>
+          <select id="f_propInsBase">
+            <option value="loan_amount">Kwota kredytu</option>
+            <option value="property_value">Wartość zabezpieczenia</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Częstotliwość</label>
+          <select id="f_propInsFreq">
+            <option value="yearly" selected>Rocznie</option>
+            <option value="monthly">Miesięcznie</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    
+    <div class="form-section">
+      <h3>Ubezpieczenie na życie</h3>
+      <div class="form-grid three">
+        <div class="form-row">
+          <label>Typ</label>
+          <select id="f_lifeInsType">
+            <option value="none">Brak / dobrowolne (0 zł)</option>
+            <option value="monthly_pct" selected>% miesięczne od salda</option>
+            <option value="monthly_pct_loan">% miesięczne od kwoty kredytu</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Stawka mies. (% — np. 0.035)</label>
+          <input type="number" id="f_lifeInsRate" value="0.035" step="0.001">
+        </div>
+        <div class="form-row">
+          <label>Wymagane przez (mies.)</label>
+          <input type="number" id="f_lifeInsMonths" value="300" step="1" min="1">
+          <div class="help">np. 60 = 5 lat, 300 = cały okres</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="form-section">
+      <h3>Kary za rezygnację (do panelu przełączników)</h3>
+      <div class="form-grid three">
+        <div class="form-row">
+          <label>Za rezygnację z ubezp. nier. (pp)</label>
+          <input type="number" id="f_penPropIns" value="0.10" step="0.05">
+        </div>
+        <div class="form-row">
+          <label>Za rezygnację z ubezp. życie (pp)</label>
+          <input type="number" id="f_penLifeIns" value="0.20" step="0.05">
+        </div>
+        <div class="form-row">
+          <label>Za niespełnienie warunków konta (pp)</label>
+          <input type="number" id="f_penAccount" value="0.50" step="0.05">
+        </div>
+      </div>
+      <div class="sub" style="margin-top:8px">Kary podawaj w punktach procentowych (np. 0.20 = 0.20 p.p. = +0.20% do marży). Te wartości będą widoczne w panelu rozwijanym oferty.</div>
+    </div>
+    
+    <div class="modal-actions">
+      <button class="btn danger" id="modalDeleteBtn" style="display:none">Usuń ofertę</button>
+      <div class="spacer"></div>
+      <button class="btn" id="modalCancelBtn">Anuluj</button>
+      <button class="btn primary" id="modalSaveBtn">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Harmonogram + wykres -->
+<div class="modal-overlay" id="scheduleModal">
+  <div class="modal" style="max-width: 1000px;">
+    <h2 id="scheduleModalTitle">Harmonogram spłat</h2>
+    <div class="sub" id="scheduleModalSub">—</div>
+    
+    <div id="scheduleSummary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 16px;"></div>
+    
+    <div style="margin-bottom: 16px;">
+      <h3 style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); margin-bottom: 10px;">📈 Wykres rozkładu</h3>
+      <div id="scheduleChart" style="background: var(--bg); padding: 16px; border: 1px solid var(--border);"></div>
+      <div style="display: flex; gap: 12px; margin-top: 8px; font-size: 10px; flex-wrap: wrap;">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#4ade80;margin-right:4px"></span>kapitał (rata)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;margin-right:4px"></span>odsetki</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#38bdf8;margin-right:4px"></span>nadpłata</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#d4ff00;margin-right:4px"></span>saldo (linia)</span>
+      </div>
+    </div>
+    
+    <div style="margin-bottom: 16px;">
+      <h3 style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); margin-bottom: 10px;">📋 Tabela roczna (co 12 miesięcy)</h3>
+      <div id="scheduleYearlyTable"></div>
+    </div>
+    
+    <div>
+      <h3 style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); margin-bottom: 10px;">🔍 Pełny harmonogram miesięczny</h3>
+      <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border);">
+        <table id="scheduleMonthlyTable" style="margin-bottom: 0;"></table>
+      </div>
+    </div>
+    
+    <div class="modal-actions">
+      <div class="spacer"></div>
+      <button class="btn" id="exportScheduleBtn">⬇ Eksportuj harmonogram (CSV)</button>
+      <button class="btn primary" id="scheduleCloseBtn">Zamknij</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ORIGINAL_DATA = {
+  "metadata": {
+    "source": "Expander - zestawienie ofert kredytów hipotecznych",
+    "generated_at": "2026-05-10",
+    "currency": "PLN",
+    "notes": "Wszystkie stopy procentowe jako liczby dziesiętne (0.0544 = 5.44%). Bazy naliczania: 'loan_amount' = kwota kredytu brutto, 'property_value' = wartość zabezpieczenia, 'outstanding_balance' = aktualne saldo zadłużenia."
+  },
+  "loan_params": {
+    "gross_amount_default": 800000,
+    "property_value": 1035000,
+    "ltv_default": 0.7729,
+    "term_months": 300
+  },
+  "offers": [
+    {
+      "id": "pko_bp_grupy_zawodowe_v1_zmienne",
+      "bank": "PKO BP",
+      "product_name": "Oferta Specjalna dla Grup zawodowych - wariant 1",
+      "rate_type": "variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.0155,
+          "reference_rate": "WIBOR_6M",
+          "reference_value": 0.0389,
+          "nominal_rate": 0.0544
+        }
+      ],
+      "aprc": 0.061,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 300, "amount": 4884.08 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 700,
+        "life_insurance_first_12m_lump": 3360,
+        "credit_protection_insurance": 0,
+        "total": 4060
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.0008,
+          "base": "loan_amount",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 640,
+          "total_over_term": 15999.99,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 12, "type": "lump_sum_upfront", "amount": 3360, "note": "0,42% kwoty kredytu za pierwsze 12M, płatne z góry" },
+          { "from_month": 13, "to_month": 300, "type": "monthly_pct", "rate": 0.00035, "base": "outstanding_balance", "avg_monthly": 172.18, "total_for_period": 49587.84 }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1534870.63,
+        "total_costs": 734870.63,
+        "total_interest": 665222.80
+      },
+      "conditions": {
+        "required_products": ["mKonto/account_3000_inflow", "life_insurance_bank_full_term"],
+        "penalties": [
+          { "trigger": "drop_life_insurance", "effect": "margin_increase_pp", "value": 0.002 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300, "note": "Brak opłat przez cały okres" },
+        "life_insurance_creditable": false,
+        "notes": "Oferta dla grup zawodowych. FI wygenerowane 12.02.2026 - 02.07.2026. Brak możliwości łączenia z innymi promocjami."
+      }
+    },
+    {
+      "id": "mbank_intensive_zmienne",
+      "bank": "mBank",
+      "product_name": "Oferta promocyjna Segment Intensive",
+      "rate_type": "variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.016,
+          "reference_rate": "WIBOR_3M",
+          "reference_value": 0.0384,
+          "nominal_rate": 0.0544
+        }
+      ],
+      "aprc": 0.0602,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 300, "amount": 4884.08 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 700,
+        "total": 700
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.000794,
+          "base": "property_value",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 821.79,
+          "total_over_term": 20544.75,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 60, "type": "monthly_pct", "rate": 0.0005, "base": "outstanding_balance", "avg_monthly": 379.72, "total_for_period": 22783.20, "note": "Wymagane przez 60 mies. Rezygnacja przed 60M = marża standardowa." }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1509250.75,
+        "total_costs": 709250.75,
+        "total_interest": 665222.80
+      },
+      "conditions": {
+        "required_products": ["mKonto_Intensive_10000_zl_inflow", "life_insurance_bank_60m"],
+        "penalties": [
+          { "trigger": "drop_life_insurance_before_60m", "effect": "margin_to_standard", "value": null },
+          { "trigger": "drop_account_before_5y", "effect": "margin_to_standard", "value": null },
+          { "trigger": "criteria_check_failed", "effect": "rate_increase_pp", "value": 0.02, "note": "Kontrola co 6 mies." }
+        ],
+        "discounts": [
+          { "trigger": "active_client_6m", "effect": "margin_decrease_pp", "value": 0.001 }
+        ],
+        "early_repayment_fee": { 
+          "fee_pct": 0.03, 
+          "period_months": 36, 
+          "note": "Pierwsze 36M: mniejsza z 3% spłacanej kwoty lub odsetki za rok. Częściowa nadpłata bezpłatna." 
+        },
+        "partial_overpayment_fee": 0
+      }
+    },
+    {
+      "id": "pekao_sluzby_mundurowe_cpi_zmienne",
+      "bank": "Pekao SA",
+      "product_name": "2A/OS/2026 dla Służb Mundurowych i grup zawodowych z CPI_zmienne",
+      "rate_type": "variable",
+      "loan_amount": 815724.80,
+      "ltv": 0.7881,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.015,
+          "reference_rate": "WIBOR_1M",
+          "reference_value": 0.0376,
+          "nominal_rate": 0.0526
+        }
+      ],
+      "aprc": 0.0579,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 300, "amount": 4893.03 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 740,
+        "job_loss_insurance_credited": 15724.80,
+        "total": 740,
+        "note": "Ubezpieczenie od utraty pracy 15724.80 zł skredytowane (wliczone do kwoty kredytu)"
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.001,
+          "base": "loan_amount",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 800,
+          "total_over_term": 20000.01,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 300, "type": "client_provided", "note": "Polisa własna klienta, min. 25% kwoty kredytu, koszt po stronie klienta" }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1488647.78,
+        "total_costs": 672922.98,
+        "total_interest": 652182.97
+      },
+      "conditions": {
+        "required_products": ["account_3000_inflow", "PeoPay_app", "property_insurance_bank", "marketing_consent"],
+        "penalties": [
+          { "trigger": "drop_property_insurance", "effect": "margin_increase_pp", "value": 0.001 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "ing_wiosna_lat_start_zmienne",
+      "bank": "ING Bank Śląski",
+      "product_name": "Wiosna na swoim z prowizją 0% Łatwy start opr. zmienne",
+      "rate_type": "variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.0173,
+          "reference_rate": "WIBOR_1M",
+          "reference_value": 0.0376,
+          "nominal_rate": 0.0549
+        }
+      ],
+      "aprc": 0.0601,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 300, "amount": 4907.92 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 870,
+        "total": 870
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.000096,
+          "base": "loan_amount",
+          "frequency": "monthly",
+          "from_month": 1,
+          "to_month": 300,
+          "monthly_amount": 76.80,
+          "total_over_term": 23040,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 36, "type": "monthly_pct", "rate": 0.00055, "base": "outstanding_balance", "avg_monthly": 427.34, "total_for_period": 15384.24, "note": "Wymagane 36 mies. Po tym okresie rezygnacja bez zmian cenowych." }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1511671.29,
+        "total_costs": 711671.29,
+        "total_interest": 672377.05
+      },
+      "conditions": {
+        "required_products": ["account_2000_inflow", "life_insurance_bank_36m", "mobile_app", "behavioral_verification"],
+        "penalties": [],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "velobank_velodom_profesjonalisci_zmienne",
+      "bank": "VeloBank",
+      "product_name": "Oferta VeloDom z prowizją 0% i x-sellem dla Profesjonalistów - opr. zmienne",
+      "rate_type": "variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.0175,
+          "reference_rate": "WIBOR_1M",
+          "reference_value": 0.0376,
+          "nominal_rate": 0.0551
+        }
+      ],
+      "aprc": 0.0591,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 300, "amount": 4917.48 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 0,
+        "property_valuation_note": "po stronie klienta",
+        "total": 0
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.000426,
+          "base": "property_value",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 440.91,
+          "total_over_term": 11022.75,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 60, "type": "monthly_pct", "rate": 0.00030129, "base": "loan_amount", "avg_monthly": 240.96, "total_for_period": 14457.60, "note": "Wymagane 5 lat. Rezygnacja = marża standardowa." }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1500723.93,
+        "total_costs": 700723.93,
+        "total_interest": 675243.58
+      },
+      "conditions": {
+        "required_products": ["account_with_package_5y", "life_insurance_5y_with_employment_loss"],
+        "penalties": [
+          { "trigger": "drop_required_products_before_5y", "effect": "margin_to_standard", "value": null }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "pko_bp_grupy_zawodowe_v2_zmienne",
+      "bank": "PKO BP",
+      "product_name": "Oferta Specjalna dla Grup zawodowych - wariant 2",
+      "rate_type": "variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.0185,
+          "reference_rate": "WIBOR_6M",
+          "reference_value": 0.0389,
+          "nominal_rate": 0.0574
+        }
+      ],
+      "aprc": 0.0614,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 300, "amount": 5028.02 }
+      ],
+      "upfront_costs": {
+        "commission": 8000,
+        "commission_pct": 0.01,
+        "property_valuation": 700,
+        "total": 8700
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.0008,
+          "base": "loan_amount",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 640,
+          "total_over_term": 15999.99,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 300, "type": "optional", "amount": 0, "note": "Dobrowolne, własne, nie uwzględnione w kosztach" }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1533105.39,
+        "total_costs": 733105.39,
+        "total_interest": 708405.40
+      },
+      "conditions": {
+        "required_products": ["account_3000_inflow"],
+        "penalties": [],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "pekao_sluzby_mundurowe_bez_cpi_stale",
+      "bank": "Pekao SA",
+      "product_name": "2A/OS/2026 dla Służb Mundurowych i grup zawodowych bez CPI_stałe",
+      "rate_type": "fixed_then_variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 60,
+          "type": "fixed",
+          "nominal_rate": 0.059
+        },
+        {
+          "from_month": 61,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.018,
+          "reference_rate": "WIBOR_1M",
+          "reference_value": 0.0376,
+          "nominal_rate": 0.0556
+        }
+      ],
+      "aprc": 0.0612,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 60, "amount": 5105.62 },
+        { "from_month": 61, "to_month": 300, "amount": 4966.29 }
+      ],
+      "upfront_costs": {
+        "commission": 7200,
+        "commission_pct": 0.009,
+        "property_valuation": 740,
+        "total": 7940
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.001,
+          "base": "loan_amount",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 800,
+          "total_over_term": 20000.01,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 300, "type": "client_provided", "note": "Polisa własna, min. 25% kwoty kredytu" }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1526187.57,
+        "total_costs": 726187.57,
+        "total_interest": 698247.56
+      },
+      "conditions": {
+        "required_products": ["account_3000_inflow", "PeoPay", "property_insurance_bank"],
+        "penalties": [
+          { "trigger": "drop_property_insurance", "effect": "margin_increase_pp", "value": 0.001 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "erste_platinum_stale",
+      "bank": "Erste Bank",
+      "product_name": "Platinum klient wewnętrzny/zewnętrzny stałe %",
+      "rate_type": "fixed_then_variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 60,
+          "type": "fixed",
+          "nominal_rate": 0.0595
+        },
+        {
+          "from_month": 61,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.0175,
+          "reference_rate": "WIBOR_3M",
+          "reference_value": 0.0384,
+          "nominal_rate": 0.0559
+        }
+      ],
+      "aprc": 0.0628,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 60, "amount": 5129.99 },
+        { "from_month": 61, "to_month": 300, "amount": 4982.11 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "commission_pct": 0,
+        "commission_note": "0% pod warunkiem ubezpieczenia Spokojna Hipoteka",
+        "property_valuation": 880,
+        "total": 880
+      },
+      "recurring_costs": {
+        "bridge_insurance": {
+          "monthly_amount": 24.42,
+          "from_month": 1,
+          "to_month": 3,
+          "total": 73.26,
+          "note": "Podwyższenie marży o 0.05 p.p. do wpisu hipoteki"
+        },
+        "property_insurance": {
+          "rate": 0.0009,
+          "base": "property_value",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 931.50,
+          "total_over_term": 23287.50,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 60, "type": "monthly_pct", "rate": 0.00035, "base": "outstanding_balance", "avg_monthly": 266.75, "total_for_period": 16005, "note": "Spokojna Hipoteka. Obniża prowizję do 0." }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1543750.99,
+        "total_costs": 743750.99,
+        "total_interest": 703505.23
+      },
+      "conditions": {
+        "required_products": ["select_segment", "life_insurance_Spokojna_Hipoteka"],
+        "discounts": [
+          { "trigger": "credit_card_10_transactions_monthly", "effect": "margin_decrease_pp", "value": 0.001, "duration_months": 60 }
+        ],
+        "penalties": [
+          { "trigger": "drop_property_insurance", "effect": "rate_increase_pp", "value": 0.003 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "pko_bp_grupy_zawodowe_v1_stale",
+      "bank": "PKO BP",
+      "product_name": "Oferta Specjalna dla Grup zawodowych - wariant 1 stałe oprocentowanie",
+      "rate_type": "fixed_then_variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 60,
+          "type": "fixed",
+          "nominal_rate": 0.0597
+        },
+        {
+          "from_month": 61,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.0155,
+          "reference_rate": "WIBOR_6M",
+          "reference_value": 0.0389,
+          "nominal_rate": 0.0544
+        }
+      ],
+      "aprc": 0.0635,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 60, "amount": 5139.75 },
+        { "from_month": 61, "to_month": 300, "amount": 4922.58 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 700,
+        "life_insurance_first_12m_lump": 3360,
+        "total": 4060
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.0008,
+          "base": "loan_amount",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 640,
+          "total_over_term": 15999.99,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 12, "type": "lump_sum_upfront", "amount": 3360 },
+          { "from_month": 13, "to_month": 300, "type": "monthly_pct", "rate": 0.00035, "base": "outstanding_balance", "avg_monthly": 172.94, "total_for_period": 49806.72 }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1559670.72,
+        "total_costs": 759670.72,
+        "total_interest": 689804.01
+      },
+      "conditions": {
+        "required_products": ["account_3000_inflow", "life_insurance_bank_full_term"],
+        "penalties": [
+          { "trigger": "drop_life_insurance", "effect": "margin_increase_pp", "value": 0.002 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 },
+        "life_insurance_creditable": false
+      }
+    },
+    {
+      "id": "mbank_intensive_stale",
+      "bank": "mBank",
+      "product_name": "Oferta Promocyjna Stałe Oprocentowanie segment Intensive",
+      "rate_type": "fixed_then_variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 60,
+          "type": "fixed",
+          "nominal_rate": 0.0626
+        },
+        {
+          "from_month": 61,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.017,
+          "reference_rate": "WIBOR_3M",
+          "reference_value": 0.0384,
+          "nominal_rate": 0.0554
+        }
+      ],
+      "aprc": 0.0646,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 60, "amount": 5282.30 },
+        { "from_month": 61, "to_month": 300, "amount": 4983.62 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 700,
+        "total": 700
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.000794,
+          "base": "property_value",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 821.79,
+          "total_over_term": 20544.75,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 60, "type": "monthly_pct", "rate": 0.0005, "base": "outstanding_balance", "avg_monthly": 381.86, "total_for_period": 22911.60 }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1557162.67,
+        "total_costs": 757162.67,
+        "total_interest": 713006.32
+      },
+      "conditions": {
+        "required_products": ["mKonto_Intensive_10000_zl_inflow", "life_insurance_bank_5y"],
+        "penalties": [
+          { "trigger": "drop_life_insurance_before_60m", "effect": "margin_to_standard", "value": null },
+          { "trigger": "criteria_check_failed", "effect": "rate_increase_pp", "value": 0.02 }
+        ],
+        "discounts": [
+          { "trigger": "active_client_6m", "effect": "margin_decrease_pp", "value": 0.001 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 60, "note": "Bezpłatna przez pierwsze 5 lat. Późniejsza opłata regulowana aneksem." }
+      }
+    },
+    {
+      "id": "pekao_premium_16f_cpi_stale",
+      "bank": "Pekao SA",
+      "product_name": "Oferta PREMIUM 16F/OS/2026 z CPI ze stałym % i prowizją 0%",
+      "rate_type": "fixed_then_variable",
+      "loan_amount": 815724.80,
+      "ltv": 0.7881,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 60,
+          "type": "fixed",
+          "nominal_rate": 0.0619
+        },
+        {
+          "from_month": 61,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.0158,
+          "reference_rate": "WIBOR_1M",
+          "reference_value": 0.0376,
+          "nominal_rate": 0.0534
+        }
+      ],
+      "aprc": 0.0627,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 60, "amount": 5350.87 },
+        { "from_month": 61, "to_month": 300, "amount": 4993.72 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 740,
+        "job_loss_insurance_credited": 15724.80,
+        "total": 740
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.001,
+          "base": "loan_amount",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 800,
+          "total_over_term": 20000.01,
+          "source_type": "bank",
+          "required": "bank"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 300, "type": "optional", "amount": 0, "note": "Dobrowolne (CPI od utraty pracy jest osobno, skredytowane)" }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1540286.07,
+        "total_costs": 724561.27,
+        "total_interest": 703821.26
+      },
+      "conditions": {
+        "required_products": ["Konto_Swiat_Premium_10000_zl_inflow", "debit_card", "property_insurance_bank", "job_loss_insurance_CPI", "PeoPay", "marketing_consent"],
+        "discounts": [
+          { "trigger": "credit_card_5y", "effect": "margin_decrease_pp", "value": 0.001 }
+        ],
+        "penalties": [
+          { "trigger": "drop_property_insurance", "effect": "margin_increase_pp", "value": 0.001 },
+          { "trigger": "drop_job_loss_insurance", "effect": "margin_increase_pp", "value": 0.0015 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "pekao_16f_cpi_stale",
+      "bank": "Pekao SA",
+      "product_name": "Oferta 16F/OS/2026 z CPI ze stałym % i prowizją 0%",
+      "rate_type": "fixed_then_variable",
+      "loan_amount": 815724.80,
+      "ltv": 0.7881,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 60,
+          "type": "fixed",
+          "nominal_rate": 0.062
+        },
+        {
+          "from_month": 61,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.016,
+          "reference_rate": "WIBOR_1M",
+          "reference_value": 0.0376,
+          "nominal_rate": 0.0536
+        }
+      ],
+      "aprc": 0.0629,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 60, "amount": 5355.90 },
+        { "from_month": 61, "to_month": 300, "amount": 5002.68 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 740,
+        "job_loss_insurance_credited": 15724.80,
+        "total": 740
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.001,
+          "base": "loan_amount",
+          "frequency": "yearly",
+          "from_month": 1,
+          "to_month": 300,
+          "yearly_amount": 800,
+          "total_over_term": 20000.01,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 300, "type": "optional", "amount": 0 }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1542737.68,
+        "total_costs": 727012.88,
+        "total_interest": 706272.87
+      },
+      "conditions": {
+        "required_products": ["account_3000_or_10000_inflow", "debit_card", "property_insurance_bank", "job_loss_insurance_CPI", "PeoPay"],
+        "discounts": [
+          { "trigger": "salary_inflow_10000", "effect": "margin_decrease_pp", "value": 0.0002 },
+          { "trigger": "credit_card_5y", "effect": "margin_decrease_pp", "value": 0.001 }
+        ],
+        "penalties": [
+          { "trigger": "drop_property_insurance", "effect": "margin_increase_pp", "value": 0.001 },
+          { "trigger": "drop_job_loss_insurance", "effect": "margin_increase_pp", "value": 0.0015 }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    },
+    {
+      "id": "millennium_v2_stale",
+      "bank": "Millennium",
+      "product_name": "Oferta wariant 2_oproc. stałe",
+      "rate_type": "fixed_then_variable",
+      "loan_amount": 800000,
+      "ltv": 0.7729,
+      "term_months": 300,
+      "interest_periods": [
+        {
+          "from_month": 1,
+          "to_month": 60,
+          "type": "fixed",
+          "nominal_rate": 0.0656
+        },
+        {
+          "from_month": 61,
+          "to_month": 300,
+          "type": "variable",
+          "margin": 0.02,
+          "reference_rate": "WIBOR_6M",
+          "reference_value": 0.0388,
+          "nominal_rate": 0.0588
+        }
+      ],
+      "aprc": 0.0692,
+      "monthly_payment_source": [
+        { "from_month": 1, "to_month": 60, "amount": 5431.69 },
+        { "from_month": 61, "to_month": 300, "amount": 5144.67 }
+      ],
+      "upfront_costs": {
+        "commission": 0,
+        "property_valuation": 870,
+        "total": 870
+      },
+      "recurring_costs": {
+        "property_insurance": {
+          "rate": 0.000075,
+          "base": "property_value",
+          "frequency": "monthly",
+          "from_month": 1,
+          "to_month": 300,
+          "monthly_amount": 77.63,
+          "total_over_term": 23289,
+          "source_type": "bank",
+          "required": "bank_or_own"
+        },
+        "life_insurance": [
+          { "from_month": 1, "to_month": 300, "type": "monthly_pct", "rate": 0.00035, "base": "outstanding_balance", "avg_monthly": 174.91, "total_for_period": 52473, "note": "Obniża marżę o 0.20 p.p. Wymagane 36M dla utrzymania obniżki." }
+        ]
+      },
+      "totals_from_source": {
+        "total_to_pay": 1637253.98,
+        "total_costs": 837253.98,
+        "total_interest": 760621.98
+      },
+      "conditions": {
+        "required_products": ["account", "debit_card_500_zl_monthly", "salary_inflow_2x_payment", "life_insurance"],
+        "discounts": [
+          { "trigger": "life_insurance_36m", "effect": "rate_decrease_pp", "value": 0.002 }
+        ],
+        "penalties": [
+          { "trigger": "drop_cross_sell_before_55m", "effect": "margin_to_standard", "value": null }
+        ],
+        "early_repayment_fee": { "fee": 0, "period_months": 300 }
+      }
+    }
+  ]
+}
+;
+
+let DATA = JSON.parse(JSON.stringify(ORIGINAL_DATA));
+let offerOverrides = {};
+let editingOfferId = null;
+let currentSort = { col: 'tco', asc: true };
+let expandedOffers = new Set();
+
+const STORAGE_KEY_DATA = 'mortgage_calc_data_v1';
+const STORAGE_KEY_OVERRIDES = 'mortgage_calc_overrides_v1';
+
+const storage = {
+  available: false,
+  init() {
+    try {
+      localStorage.setItem('__test__', '1');
+      localStorage.removeItem('__test__');
+      this.available = true;
+    } catch (e) { this.available = false; }
+  },
+  save() {
+    if (!this.available) return false;
+    try {
+      localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(DATA));
+      localStorage.setItem(STORAGE_KEY_OVERRIDES, JSON.stringify(offerOverrides));
+      return true;
+    } catch (e) { console.error('Storage save failed:', e); return false; }
+  },
+  load() {
+    if (!this.available) return false;
+    try {
+      const d = localStorage.getItem(STORAGE_KEY_DATA);
+      const o = localStorage.getItem(STORAGE_KEY_OVERRIDES);
+      if (d) DATA = JSON.parse(d);
+      if (o) offerOverrides = JSON.parse(o);
+      return !!d;
+    } catch (e) { console.error('Storage load failed:', e); return false; }
+  },
+  clear() {
+    if (!this.available) return;
+    localStorage.removeItem(STORAGE_KEY_DATA);
+    localStorage.removeItem(STORAGE_KEY_OVERRIDES);
+  }
+};
+
+function updateStorageStatus() {
+  const el = document.getElementById('storageStatus');
+  const txt = document.getElementById('storageStatusText');
+  if (!storage.available) {
+    el.classList.add('warn');
+    txt.textContent = 'Tylko sesja - eksportuj JSON';
+  } else {
+    const customCount = DATA.offers.filter(o => o._custom).length;
+    txt.textContent = 'Auto-zapis OK' + (customCount > 0 ? ' (' + customCount + ' własnych)' : '');
+  }
+}
+
+function annuityPayment(principal, monthlyRate, months) {
+  if (monthlyRate === 0) return principal / months;
+  return principal * monthlyRate * Math.pow(1 + monthlyRate, months) / (Math.pow(1 + monthlyRate, months) - 1);
+}
+
+function effectiveRate(period, wiborShock, marginAdjustment) {
+  marginAdjustment = marginAdjustment || 0;
+  if (period.type === 'fixed') return period.nominal_rate;
+  return period.reference_value + period.margin + marginAdjustment + wiborShock;
+}
+
+function getOverrideEffects(offer) {
+  const ov = offerOverrides[offer.id] || {};
+  
+  function marginAdjustmentAtMonth(month) {
+    let adj = 0;
+    if (ov.dropPropIns && ov.dropPropIns.enabled && month >= (ov.dropPropIns.atMonth || 1)) {
+      adj += (ov.dropPropIns.penaltyPp || 0) / 100;
+    }
+    if (ov.dropLifeIns && ov.dropLifeIns.enabled && month >= (ov.dropLifeIns.atMonth || 1)) {
+      adj += (ov.dropLifeIns.penaltyPp || 0) / 100;
+    }
+    if (ov.dropAccount && ov.dropAccount.enabled && month >= (ov.dropAccount.atMonth || 1)) {
+      adj += (ov.dropAccount.penaltyPp || 0) / 100;
+    }
+    if (ov.dropXsell && ov.dropXsell.enabled && month >= (ov.dropXsell.atMonth || 1)) {
+      adj += (ov.dropXsell.penaltyPp || 0) / 100;
+    }
+    return adj;
+  }
+  
+  function propInsActiveAt(month) {
+    if (ov.dropPropIns && ov.dropPropIns.enabled && month >= (ov.dropPropIns.atMonth || 1)) return false;
+    return true;
+  }
+  function lifeInsActiveAt(month) {
+    if (ov.dropLifeIns && ov.dropLifeIns.enabled && month >= (ov.dropLifeIns.atMonth || 1)) return false;
+    return true;
+  }
+  function accountExtraCostAt(month) {
+    if (ov.dropAccount && ov.dropAccount.enabled && month >= (ov.dropAccount.atMonth || 1)) {
+      return ov.dropAccount.extraMonthly || 0;
+    }
+    return 0;
+  }
+  
+  return { marginAdjustmentAtMonth, propInsActiveAt, lifeInsActiveAt, accountExtraCostAt };
+}
+
+// REKOMPENSATA - art. 40 Ustawy o kredycie hipotecznym (Dz.U. 2017 poz. 819)
+// Zmienna stopa: tylko pierwsze 36 miesięcy od zawarcia umowy
+// Stała stopa: opcjonalnie cały okres stałości (banki różnie)
+// Limit: min(3% spłacanej kwoty, odsetki za rok od spłacanej kwoty)
+function calculateCompensation(overpayAmount, currentMonthlyRate, monthInLoan, isFixedPeriod, settings) {
+  if (!settings.compensationEnabled) return 0;
+  if (overpayAmount <= 0) return 0;
+  
+  if (!isFixedPeriod) {
+    // Zmienna stopa: tylko 36 mies.
+    if (monthInLoan > 36) return 0;
+    const limit1 = overpayAmount * (settings.compensationRatePct / 100);
+    const annualRate = currentMonthlyRate * 12;
+    const limit2 = overpayAmount * annualRate;
+    return Math.min(limit1, limit2);
+  }
+  
+  // Stała stopa: tylko jeśli włączone (banki różnie - PKO zniosło)
+  if (settings.compensationFixedEnabled) {
+    const limit1 = overpayAmount * (settings.compensationRatePct / 100);
+    const annualRate = currentMonthlyRate * 12;
+    const limit2 = overpayAmount * annualRate;
+    return Math.min(limit1, limit2);
+  }
+  
+  return 0;
+}
+
+function simulate(offer, params) {
+  const wiborShock = params.wiborShock;
+  const loanAmount = params.loanAmount;
+  const termMonths = params.termMonths;
+  const overpayMonthly = params.overpayMonthly || 0;
+  const overpayLump = params.overpayLump || 0;
+  const overpayMonth = params.overpayMonth || 1;
+  const overpayMode = params.overpayMode || 'shorten';
+  
+  // === NOWY MODEL: 2 ortogonalne kontrolki ===
+  let overpayBehavior = params.overpayBehavior;
+  let recalcFreq = params.recalcFreq;
+  
+  // Backward compat: mapowanie ze starego recalcMode
+  if (!overpayBehavior || !recalcFreq) {
+    const oldMode = params.recalcMode || 'manual';
+    if (oldMode === 'manual') {
+      overpayBehavior = overpayBehavior || 'fixed';
+      recalcFreq = recalcFreq || 'manual';
+    } else if (oldMode === 'once_per_year') {
+      overpayBehavior = overpayBehavior || 'fixed';
+      recalcFreq = recalcFreq || 'yearly';
+    } else if (oldMode === 'every_overpayment' || oldMode === 'monthly') {
+      overpayBehavior = overpayBehavior || 'fixed';
+      recalcFreq = recalcFreq || 'monthly';
+    } else if (oldMode === 'constant_outflow') {
+      overpayBehavior = overpayBehavior || 'constant_outflow';
+      recalcFreq = recalcFreq || 'yearly';
+    } else {
+      overpayBehavior = overpayBehavior || 'fixed';
+      recalcFreq = recalcFreq || 'manual';
+    }
+  }
+  
+  const overpayPctOfPayment = params.overpayPctOfPayment || 0;
+  
+  const compSettings = params.compensationSettings || {
+    compensationEnabled: true,
+    compensationRatePct: 3.0,
+    compensationFixedEnabled: false
+  };
+  
+  const scaleFactor = loanAmount / offer.loan_amount;
+  const eff = params._isBaseline ? {
+    marginAdjustmentAtMonth: function() { return 0; },
+    propInsActiveAt: function() { return true; },
+    lifeInsActiveAt: function() { return true; },
+    accountExtraCostAt: function() { return 0; }
+  } : getOverrideEffects(offer);
+  const propertyValue = DATA.loan_params.property_value || 1035000;
+  
+  let balance = loanAmount;
+  let totalInterest = 0;
+  let totalPayments = 0;     // suma rat (kapitał+odsetki, bez nadpłat)
+  let totalOverpayments = 0; // suma nadpłat
+  let totalInsurance = 0;
+  let totalCompensation = 0;
+  const schedule = [];
+  
+  const upfront = (offer.upfront_costs.total || 0) * scaleFactor;
+  
+  function getMonthlyRate(month) {
+    const period = offer.interest_periods.find(p => month >= p.from_month && month <= p.to_month);
+    if (!period) return offer.interest_periods[offer.interest_periods.length - 1].nominal_rate / 12;
+    return effectiveRate(period, wiborShock, eff.marginAdjustmentAtMonth(month)) / 12;
+  }
+  
+  function isInFixedPeriod(month) {
+    const period = offer.interest_periods.find(p => month >= p.from_month && month <= p.to_month);
+    return period && period.type === 'fixed';
+  }
+  
+  function getInsuranceCost(month, currentBalance) {
+    let cost = 0;
+    const propIns = offer.recurring_costs.property_insurance;
+    if (propIns && month >= propIns.from_month && month <= propIns.to_month && eff.propInsActiveAt(month)) {
+      let baseValue;
+      if (propIns.base === 'loan_amount') baseValue = loanAmount;
+      else if (propIns.base === 'property_value') baseValue = propertyValue * scaleFactor;
+      else baseValue = currentBalance;
+      
+      if (propIns.frequency === 'yearly') cost += (baseValue * propIns.rate) / 12;
+      else if (propIns.frequency === 'monthly') cost += baseValue * propIns.rate;
+    }
+    
+    const lifeIns = offer.recurring_costs.life_insurance || [];
+    if (eff.lifeInsActiveAt(month)) {
+      for (let i = 0; i < lifeIns.length; i++) {
+        const seg = lifeIns[i];
+        if (month < seg.from_month || month > seg.to_month) continue;
+        if (seg.type === 'lump_sum_upfront' && month === seg.from_month) {
+          cost += seg.amount * scaleFactor;
+        } else if (seg.type === 'monthly_pct') {
+          let baseValue;
+          if (seg.base === 'loan_amount') baseValue = loanAmount;
+          else if (seg.base === 'outstanding_balance') baseValue = currentBalance;
+          else baseValue = currentBalance;
+          cost += baseValue * seg.rate;
+        }
+      }
+    }
+    
+    cost += eff.accountExtraCostAt(month);
+    return cost;
+  }
+  
+  let currentPayment = annuityPayment(balance, getMonthlyRate(1), termMonths);
+  // Bazowa rata - używana w trybie 'constant_outflow' do utrzymania stałego wypływu
+  const baselinePayment = currentPayment;
+  let lastRateUsed = getMonthlyRate(1);
+  let monthsToNextRecalc = recalcFreq === 'quarterly' ? 3 : 12;
+  
+  for (let m = 1; m <= termMonths; m++) {
+    if (balance <= 0.01) break;
+    
+    const r = getMonthlyRate(m);
+    const inFixed = isInFixedPeriod(m);
+    
+    if (Math.abs(r - lastRateUsed) > 1e-9) {
+      currentPayment = annuityPayment(balance, r, termMonths - m + 1);
+      lastRateUsed = r;
+    }
+    
+    const interestPart = balance * r;
+    let principalPart = currentPayment - interestPart;
+    
+    if (principalPart > balance) {
+      principalPart = balance;
+      currentPayment = principalPart + interestPart;
+    }
+    
+    let lumpThisMonth = 0;
+    if (m === overpayMonth && overpayLump > 0) {
+      const balanceAfterRegular = balance - principalPart;
+      lumpThisMonth = Math.min(overpayLump, Math.max(0, balanceAfterRegular));
+    }
+    
+    // === NADPŁATA MIESIĘCZNA: 3 tryby zachowania ===
+    let monthlyOver = 0;
+    if (overpayMode === 'reduce') {
+      if (overpayBehavior === 'constant_outflow' && overpayMonthly > 0) {
+        // Stały wypływ: target = bazowa rata + zadeklarowana nadpłata
+        const target = baselinePayment + overpayMonthly;
+        const dynamicMonthly = Math.max(0, target - currentPayment);
+        const balanceAfterRegular = balance - principalPart - lumpThisMonth;
+        monthlyOver = Math.min(dynamicMonthly, Math.max(0, balanceAfterRegular));
+      } else if (overpayBehavior === 'pct_of_payment' && overpayPctOfPayment > 0) {
+        // Procent raty: nadpłata = X% × aktualna rata
+        const dynamicMonthly = currentPayment * (overpayPctOfPayment / 100);
+        const balanceAfterRegular = balance - principalPart - lumpThisMonth;
+        monthlyOver = Math.min(dynamicMonthly, Math.max(0, balanceAfterRegular));
+      } else if (overpayMonthly > 0) {
+        // Stała kwota (default)
+        const balanceAfterRegular = balance - principalPart - lumpThisMonth;
+        monthlyOver = Math.min(overpayMonthly, Math.max(0, balanceAfterRegular));
+      }
+    } else if (overpayMonthly > 0) {
+      // SHORTEN - zawsze stała nadpłata
+      const balanceAfterRegular = balance - principalPart - lumpThisMonth;
+      monthlyOver = Math.min(overpayMonthly, Math.max(0, balanceAfterRegular));
+    }
+    
+    const totalOverpayment = lumpThisMonth + monthlyOver;
+    
+    // Rekompensata art. 40
+    let compensation = 0;
+    if (totalOverpayment > 0) {
+      compensation = calculateCompensation(totalOverpayment, r, m, inFixed, compSettings);
+    }
+    
+    balance = balance - principalPart - totalOverpayment;
+    if (balance < 0.01) balance = 0;
+    
+    const insurance = getInsuranceCost(m, balance + principalPart);
+    
+    // FAKTYCZNA RATA OPŁACONA W TYM MIESIĄCU = principal + interest (PRZED przeliczeniem)
+    const paidThisMonth = principalPart + interestPart;
+    
+    totalInterest += interestPart;
+    totalPayments += paidThisMonth;
+    totalOverpayments += totalOverpayment;
+    totalInsurance += insurance;
+    totalCompensation += compensation;
+    
+    // === PRZELICZENIE RATY: 4 częstotliwości (tylko dla REDUCE) ===
+    let rateRecalculated = false;
+    if (overpayMode === 'reduce' && balance > 0 && m < termMonths) {
+      const remainingMonths = termMonths - m;
+      let shouldRecalc = false;
+      
+      if (recalcFreq === 'monthly' && totalOverpayments > 0) {
+        // Co miesiąc po każdej nadpłacie (idealistyczne)
+        if (totalOverpayment > 0) shouldRecalc = true;
+      } else if (recalcFreq === 'quarterly' && totalOverpayments > 0) {
+        // Co 3 mies. (kwartał)
+        monthsToNextRecalc--;
+        if (monthsToNextRecalc <= 0) {
+          shouldRecalc = true;
+          monthsToNextRecalc = 3;
+        }
+      } else if (recalcFreq === 'yearly' && totalOverpayments > 0) {
+        // Co 12 mies. (najczęstsze w bankach)
+        monthsToNextRecalc--;
+        if (monthsToNextRecalc <= 0) {
+          shouldRecalc = true;
+          monthsToNextRecalc = 12;
+        }
+      } else if (recalcFreq === 'manual') {
+        // Tylko po nadpłacie jednorazowej
+        if (lumpThisMonth > 0) shouldRecalc = true;
+      }
+      
+      if (shouldRecalc) {
+        currentPayment = annuityPayment(balance, r, remainingMonths);
+        rateRecalculated = true;
+      }
+    }
+    
+    schedule.push({
+      month: m,
+      payment: paidThisMonth,         // FAKTYCZNIE opłacona rata w tym miesiącu (principal+interest)
+      nextPayment: currentPayment,     // Rata na NASTĘPNY miesiąc (po ewentualnym przeliczeniu)
+      interest: interestPart,
+      principal: principalPart,
+      overpayment: totalOverpayment,
+      compensation: compensation,
+      balance: balance,
+      insurance: insurance,
+      cashflow: paidThisMonth + insurance + totalOverpayment + compensation,
+      rateRecalculated: rateRecalculated,
+      ratePct: r * 12,
+      inFixedPeriod: inFixed
+    });
+  }
+  
+  const cf60 = schedule.slice(0, 60).reduce((s, r) => s + r.cashflow, 0) + upfront;
+  const cf120 = schedule.slice(0, 120).reduce((s, r) => s + r.cashflow, 0) + upfront;
+  
+  const totalCosts = upfront + totalInsurance + totalCompensation;
+  const tco = totalPayments + totalOverpayments + totalCosts;
+  
+  return {
+    schedule: schedule,
+    totalPaid: totalPayments + totalOverpayments + upfront,
+    totalPayments: totalPayments,
+    totalOverpayments: totalOverpayments,
+    totalInterest: totalInterest,
+    totalInsurance: totalInsurance,
+    totalCompensation: totalCompensation,
+    totalCosts: totalCosts,
+    tco: tco,
+    cf60: cf60, cf120: cf120,
+    firstRate: schedule[0] ? schedule[0].payment : 0,
+    rateAfter5y: schedule[60] ? schedule[60].payment : (schedule[schedule.length - 1] ? schedule[schedule.length - 1].payment : 0),
+    upfront: upfront,
+    actualMonths: schedule.length,
+    monthsSaved: termMonths - schedule.length
+  };
+}
+
+function fmt(v, dec) {
+  if (dec == null) dec = 0;
+  if (v == null) return '—';
+  return v.toLocaleString('pl-PL', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+function fmtPct(v) { return v == null ? '—' : (v * 100).toFixed(2) + '%'; }
+
+// Formatuje deltę: kolor (zielony=lepiej, czerwony=gorzej), znak +/-, opcjonalna jednostka
+// "lepiej" = mniej zł (odsetki, TCO) lub mniej miesięcy
+// "gorzej" = więcej zł lub więcej miesięcy
+function fmtDelta(delta, opts) {
+  opts = opts || {};
+  const threshold = opts.threshold || 0.5;
+  if (Math.abs(delta) < threshold) return '';
+  const isBetter = opts.invert ? delta > 0 : delta < 0;
+  const color = isBetter ? 'var(--good)' : 'var(--bad)';
+  const sign = delta > 0 ? '+' : '';
+  const value = opts.dec != null ? delta.toFixed(opts.dec) : Math.round(delta).toLocaleString('pl-PL');
+  const unit = opts.unit || '';
+  return '<div style="font-size:9px;color:' + color + ';font-weight:normal;margin-top:1px">' + sign + value + unit + '</div>';
+}
+
+function getCurrentParams() {
+  return {
+    wiborShock: parseFloat(document.getElementById('wiborShock').value) / 100,
+    loanAmount: parseFloat(document.getElementById('loanAmount').value),
+    termMonths: parseInt(document.getElementById('termMonths').value),
+    overpayMonthly: parseFloat(document.getElementById('overpayMonthly').value) || 0,
+    overpayLump: parseFloat(document.getElementById('overpayLump').value) || 0,
+    overpayMonth: parseInt(document.getElementById('overpayMonth').value) || 1,
+    overpayMode: document.getElementById('overpayMode').value,
+    overpayBehavior: document.getElementById('overpayBehavior').value,
+    recalcFreq: document.getElementById('recalcFreq').value,
+    overpayPctOfPayment: parseFloat(document.getElementById('overpayPctOfPayment').value) || 0,
+    compensationSettings: {
+      compensationEnabled: document.getElementById('compensationEnabled').value === 'true',
+      compensationRatePct: parseFloat(document.getElementById('compensationRatePct').value) || 3.0,
+      compensationFixedEnabled: document.getElementById('compensationFixedEnabled').value === 'true'
+    }
+  };
+}
+
+// "Czysty" baseline - kwota+okres jak w UI, ale: WIBOR=0, brak nadpłat, brak rezygnacji
+// Używany do liczenia delt w tabeli ("o ile pogorszyłeś / poprawiłeś")
+function getBaselineParams() {
+  const cur = getCurrentParams();
+  return {
+    wiborShock: 0,
+    loanAmount: cur.loanAmount,
+    termMonths: cur.termMonths,
+    overpayMonthly: 0,
+    overpayLump: 0,
+    overpayMonth: 1,
+    overpayMode: 'shorten',
+    recalcMode: 'manual',
+    compensationSettings: cur.compensationSettings,
+    _isBaseline: true  // flag dla simulate, żeby wyłączyć overrides
+  };
+}
+
+// Stan: czy tryb deltas jest aktywny (różny od baseline)
+function hasActiveModifications() {
+  const p = getCurrentParams();
+  if (Math.abs(p.wiborShock) > 1e-9) return true;
+  if (p.overpayMonthly > 0 || p.overpayLump > 0) return true;
+  // Sprawdź per-oferta overrides
+  for (const offerId in offerOverrides) {
+    const ov = offerOverrides[offerId];
+    if (ov && Object.values(ov).some(function(v) { return v && v.enabled; })) return true;
+  }
+  return false;
+}
+
+function calculateAll() {
+  const params = getCurrentParams();
+  const baselineParams = getBaselineParams();
+  
+  return DATA.offers.map(function(offer) {
+    const sim = simulate(offer, params);
+    const baseline = simulate(offer, baselineParams);
+    
+    return {
+      offer: offer,
+      sim: sim,
+      baseline: baseline,
+      bank: offer.bank,
+      product: offer.product_name,
+      rateType: offer.rate_type === 'fixed_then_variable' ? 'STAŁE 5Y' : 'ZMIENNE',
+      firstRate: sim.firstRate,
+      laterRate: sim.rateAfter5y,
+      cf60: sim.cf60,
+      cf120: sim.cf120,
+      tco: sim.tco,
+      totalInterest: sim.totalInterest,
+      upfront: sim.upfront,
+      aprc: offer.aprc,
+      // Delty vs baseline
+      deltaFirstRate: sim.firstRate - baseline.firstRate,
+      deltaTco: sim.tco - baseline.tco,
+      deltaInterest: sim.totalInterest - baseline.totalInterest,
+      deltaMonths: sim.actualMonths - baseline.actualMonths
+    };
+  });
+}
+
+function renderTable() {
+  const rows = calculateAll();
+  
+  rows.sort(function(a, b) {
+    let av = a[currentSort.col], bv = b[currentSort.col];
+    if (typeof av === 'string') return currentSort.asc ? av.localeCompare(bv) : bv.localeCompare(av);
+    return currentSort.asc ? av - bv : bv - av;
+  });
+  
+  const sortedByTco = rows.slice().sort(function(a, b) { return a.tco - b.tco; });
+  const bestTco = sortedByTco[0].tco;
+  const worstTco = sortedByTco[sortedByTco.length - 1].tco;
+  
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = rows.map(function(r) {
+    const tcoRank = sortedByTco.findIndex(function(x) { return x === r; }) + 1;
+    let rankClass = '';
+    if (tcoRank === 1) rankClass = 'top1';
+    else if (tcoRank <= 3) rankClass = 'top3';
+    
+    const ovObj = offerOverrides[r.offer.id];
+    const hasOverrides = !!(ovObj && Object.values(ovObj).some(function(v) { return v && v.enabled; }));
+    
+    let rowClass = 'main-row';
+    if (r.tco === bestTco) rowClass += ' best';
+    else if (r.tco === worstTco) rowClass += ' worst';
+    if (hasOverrides) rowClass += ' modified';
+    
+    const tagClass = r.rateType === 'STAŁE 5Y' ? 'tag-fixed' : 'tag-variable';
+    const isExpanded = expandedOffers.has(r.offer.id);
+    const customBadge = r.offer._custom ? '<span class="badge custom">własna</span>' : '';
+    const modifiedBadge = hasOverrides ? '<span class="badge modified">zmieniona</span>' : '';
+    
+    return '<tr class="' + rowClass + '" data-offer-id="' + r.offer.id + '">' +
+      '<td class="rank ' + rankClass + '">' + tcoRank + '</td>' +
+      '<td><button class="expand-btn ' + (isExpanded ? 'expanded' : '') + '" onclick="toggleExpand(\'' + r.offer.id + '\')">' + (isExpanded ? '▾' : '▸') + '</button></td>' +
+      '<td class="bank">' + r.bank + customBadge + '</td>' +
+      '<td class="product" title="' + r.product + '">' + r.product + modifiedBadge + '</td>' +
+      '<td class="tag ' + tagClass + '">' + r.rateType + '</td>' +
+      '<td class="num">' + fmt(r.firstRate, 0) + fmtDelta(r.deltaFirstRate, { unit: ' zł' }) + '</td>' +
+      '<td class="num">' + fmt(r.laterRate, 0) + '</td>' +
+      '<td class="num">' + fmt(r.cf60, 0) + '</td>' +
+      '<td class="num">' + fmt(r.cf120, 0) + '</td>' +
+      '<td class="num"><strong>' + fmt(r.tco, 0) + '</strong>' + fmtDelta(r.deltaTco, { unit: ' zł' }) + '</td>' +
+      '<td class="num">' + fmt(r.totalInterest, 0) + fmtDelta(r.deltaInterest, { unit: ' zł' }) + '</td>' +
+      '<td class="num">' + (r.deltaMonths === 0 ? '—' : (r.deltaMonths > 0 ? '+' : '') + r.deltaMonths) + (r.deltaMonths !== 0 ? '<div style="font-size:9px;color:' + (r.deltaMonths < 0 ? 'var(--good)' : 'var(--bad)') + ';margin-top:1px">' + (r.sim.actualMonths) + ' / ' + r.baseline.actualMonths + '</div>' : '') + '</td>' +
+      '<td class="num">' + fmt(r.upfront, 0) + '</td>' +
+      '<td class="num">' + fmtPct(r.aprc) + '</td>' +
+    '</tr>' +
+    '<tr class="detail-row ' + (isExpanded ? 'visible' : '') + '" data-offer-id="' + r.offer.id + '">' +
+      '<td colspan="14">' + renderDetail(r.offer, r.sim, r.baseline) + '</td>' +
+    '</tr>';
+  }).join('');
+  
+  document.querySelectorAll('th').forEach(function(th) {
+    th.classList.remove('sorted', 'asc');
+    if (th.dataset.sort === currentSort.col) {
+      th.classList.add('sorted');
+      if (currentSort.asc) th.classList.add('asc');
+    }
+  });
+  
+  const best = sortedByTco[0];
+  const worst = sortedByTco[sortedByTco.length - 1];
+  const diff = worst.tco - best.tco;
+  
+  document.getElementById('bestStats').innerHTML = 
+    '<div class="stat-row"><span class="stat-label">Bank</span><span class="stat-value" style="color:var(--accent)">' + best.bank + '</span></div>' +
+    '<div class="stat-row"><span class="stat-label">Produkt</span><span class="stat-value" style="font-size:11px">' + best.product + '</span></div>' +
+    '<div class="stat-row"><span class="stat-label">Pierwsza rata</span><span class="stat-value">' + fmt(best.firstRate, 2) + ' zł</span></div>' +
+    '<div class="stat-row"><span class="stat-label">Cashflow 5 lat</span><span class="stat-value">' + fmt(best.cf60, 0) + ' zł</span></div>' +
+    '<div class="stat-row"><span class="stat-label">TCO (cały okres)</span><span class="stat-value" style="color:var(--good)">' + fmt(best.tco, 0) + ' zł</span></div>' +
+    '<div class="stat-row"><span class="stat-label">Odsetki łącznie</span><span class="stat-value">' + fmt(best.totalInterest, 0) + ' zł</span></div>' +
+    '<div class="stat-row"><span class="stat-label">Najgorsza oferta</span><span class="stat-value">' + worst.bank + ' (+' + fmt(diff, 0) + ' zł)</span></div>' +
+    '<div class="stat-row"><span class="stat-label">Spread top vs bottom</span><span class="stat-value" style="color:var(--bad)">' + fmt(diff, 0) + ' zł / ' + (diff/best.tco*100).toFixed(1) + '%</span></div>';
+  
+  renderHeatmap();
+}
+
+function renderDetail(offer, sim, baseline) {
+  const ov = offerOverrides[offer.id] || {};
+  const conditions = offer.conditions || {};
+  const penalties = conditions.penalties || [];
+  const discounts = conditions.discounts || [];
+  
+  function getPenaltyDefault(triggerName, fallback) {
+    const p = penalties.find(function(p) { return p.trigger.includes(triggerName); });
+    if (p && p.effect && p.effect.includes('margin_increase') && p.value) return (p.value * 100).toFixed(2);
+    return fallback;
+  }
+  
+  const propInsPp = (ov.dropPropIns && ov.dropPropIns.penaltyPp != null) ? ov.dropPropIns.penaltyPp : getPenaltyDefault('property_insurance', '0.10');
+  const lifeInsPp = (ov.dropLifeIns && ov.dropLifeIns.penaltyPp != null) ? ov.dropLifeIns.penaltyPp : getPenaltyDefault('life_insurance', '0.20');
+  const accountPp = (ov.dropAccount && ov.dropAccount.penaltyPp != null) ? ov.dropAccount.penaltyPp : '0.50';
+  const xsellPp = (ov.dropXsell && ov.dropXsell.penaltyPp != null) ? ov.dropXsell.penaltyPp : '0.10';
+  
+  let conditionsBlock = '';
+  if (conditions.required_products && conditions.required_products.length > 0) {
+    conditionsBlock += '<div class="sub" style="color:var(--text-dim);margin-bottom:6px"><strong>Wymagane produkty:</strong></div>';
+    conditionsBlock += '<div style="font-size:11px;color:var(--text-dim);margin-bottom:10px">' + conditions.required_products.join(', ') + '</div>';
+  }
+  if (penalties.length > 0) {
+    conditionsBlock += '<div class="sub" style="color:var(--bad);margin-bottom:6px"><strong>Kary z dokumentu:</strong></div>';
+    conditionsBlock += penalties.map(function(p) {
+      return '<div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">• ' + p.trigger + ': ' + p.effect + (p.value ? ' (' + (p.value*100).toFixed(2) + ' pp)' : '') + '</div>';
+    }).join('');
+  }
+  if (discounts.length > 0) {
+    conditionsBlock += '<div class="sub" style="color:var(--good);margin-top:10px;margin-bottom:6px"><strong>Możliwe obniżki:</strong></div>';
+    conditionsBlock += discounts.map(function(d) {
+      return '<div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">• ' + d.trigger + ': ' + d.effect + (d.value ? ' (' + (d.value*100).toFixed(2) + ' pp)' : '') + '</div>';
+    }).join('');
+  }
+  if (conditions.early_repayment_fee) {
+    conditionsBlock += '<div class="sub" style="margin-top:10px;margin-bottom:6px"><strong>Wcześniejsza spłata:</strong></div>';
+    conditionsBlock += '<div style="font-size:11px;color:var(--text-dim)">' + (conditions.early_repayment_fee.note || (conditions.early_repayment_fee.fee === 0 ? 'Bezpłatna' : 'Płatna')) + '</div>';
+  }
+  
+  return '<div class="detail-grid">' +
+    '<div class="detail-section">' +
+      '<h3>🔧 Rezygnacje i modyfikacje</h3>' +
+      '<div class="sub">Symuluj co się stanie jeśli zrezygnujesz z produktu w wybranym miesiącu</div>' +
+      
+      '<div class="switch-row">' +
+        '<input type="checkbox" id="ov_' + offer.id + '_propIns" ' + (ov.dropPropIns && ov.dropPropIns.enabled ? 'checked' : '') + ' onchange="updateOverride(\'' + offer.id + '\',\'dropPropIns\',\'enabled\',this.checked)">' +
+        '<label for="ov_' + offer.id + '_propIns">Rezygnacja z ubezp. nieruchomości</label>' +
+      '</div>' +
+      '<div class="switch-row" style="padding-left:24px">' +
+        '<span style="color:var(--text-faint);font-size:11px">w mies.</span>' +
+        '<input type="number" min="1" max="300" value="' + ((ov.dropPropIns && ov.dropPropIns.atMonth) || 1) + '" onchange="updateOverride(\'' + offer.id + '\',\'dropPropIns\',\'atMonth\',parseInt(this.value))">' +
+        '<span style="color:var(--text-faint);font-size:11px">kara +</span>' +
+        '<input type="number" step="0.05" value="' + propInsPp + '" onchange="updateOverride(\'' + offer.id + '\',\'dropPropIns\',\'penaltyPp\',parseFloat(this.value))">' +
+        '<span class="effect">pp marży</span>' +
+      '</div>' +
+      
+      '<div class="switch-row" style="margin-top:8px">' +
+        '<input type="checkbox" id="ov_' + offer.id + '_lifeIns" ' + (ov.dropLifeIns && ov.dropLifeIns.enabled ? 'checked' : '') + ' onchange="updateOverride(\'' + offer.id + '\',\'dropLifeIns\',\'enabled\',this.checked)">' +
+        '<label for="ov_' + offer.id + '_lifeIns">Rezygnacja z ubezp. na życie</label>' +
+      '</div>' +
+      '<div class="switch-row" style="padding-left:24px">' +
+        '<span style="color:var(--text-faint);font-size:11px">w mies.</span>' +
+        '<input type="number" min="1" max="300" value="' + ((ov.dropLifeIns && ov.dropLifeIns.atMonth) || 1) + '" onchange="updateOverride(\'' + offer.id + '\',\'dropLifeIns\',\'atMonth\',parseInt(this.value))">' +
+        '<span style="color:var(--text-faint);font-size:11px">kara +</span>' +
+        '<input type="number" step="0.05" value="' + lifeInsPp + '" onchange="updateOverride(\'' + offer.id + '\',\'dropLifeIns\',\'penaltyPp\',parseFloat(this.value))">' +
+        '<span class="effect">pp marży</span>' +
+      '</div>' +
+      
+      '<div class="switch-row" style="margin-top:8px">' +
+        '<input type="checkbox" id="ov_' + offer.id + '_account" ' + (ov.dropAccount && ov.dropAccount.enabled ? 'checked' : '') + ' onchange="updateOverride(\'' + offer.id + '\',\'dropAccount\',\'enabled\',this.checked)">' +
+        '<label for="ov_' + offer.id + '_account">Niespełnienie warunków konta</label>' +
+      '</div>' +
+      '<div class="switch-row" style="padding-left:24px">' +
+        '<span style="color:var(--text-faint);font-size:11px">mies.</span>' +
+        '<input type="number" min="1" max="300" value="' + ((ov.dropAccount && ov.dropAccount.atMonth) || 1) + '" onchange="updateOverride(\'' + offer.id + '\',\'dropAccount\',\'atMonth\',parseInt(this.value))">' +
+        '<span style="color:var(--text-faint);font-size:11px">+marża</span>' +
+        '<input type="number" step="0.05" value="' + accountPp + '" onchange="updateOverride(\'' + offer.id + '\',\'dropAccount\',\'penaltyPp\',parseFloat(this.value))">' +
+        '<span class="effect">pp</span>' +
+      '</div>' +
+      '<div class="switch-row" style="padding-left:24px">' +
+        '<span style="color:var(--text-faint);font-size:11px">+koszt konta</span>' +
+        '<input type="number" step="1" value="' + ((ov.dropAccount && ov.dropAccount.extraMonthly) || 0) + '" onchange="updateOverride(\'' + offer.id + '\',\'dropAccount\',\'extraMonthly\',parseFloat(this.value))">' +
+        '<span class="effect">zł/mies.</span>' +
+      '</div>' +
+      
+      '<div class="switch-row" style="margin-top:8px">' +
+        '<input type="checkbox" id="ov_' + offer.id + '_xsell" ' + (ov.dropXsell && ov.dropXsell.enabled ? 'checked' : '') + ' onchange="updateOverride(\'' + offer.id + '\',\'dropXsell\',\'enabled\',this.checked)">' +
+        '<label for="ov_' + offer.id + '_xsell">Rezygnacja z innych x-sell</label>' +
+      '</div>' +
+      '<div class="switch-row" style="padding-left:24px">' +
+        '<span style="color:var(--text-faint);font-size:11px">w mies.</span>' +
+        '<input type="number" min="1" max="300" value="' + ((ov.dropXsell && ov.dropXsell.atMonth) || 1) + '" onchange="updateOverride(\'' + offer.id + '\',\'dropXsell\',\'atMonth\',parseInt(this.value))">' +
+        '<span style="color:var(--text-faint);font-size:11px">kara +</span>' +
+        '<input type="number" step="0.05" value="' + xsellPp + '" onchange="updateOverride(\'' + offer.id + '\',\'dropXsell\',\'penaltyPp\',parseFloat(this.value))">' +
+        '<span class="effect">pp marży</span>' +
+      '</div>' +
+      
+      '<div style="margin-top:12px;display:flex;gap:6px">' +
+        '<button class="btn small" onclick="resetOverrides(\'' + offer.id + '\')">Resetuj zmiany</button>' +
+        '<button class="btn small" onclick="editOffer(\'' + offer.id + '\')">Edytuj parametry</button>' +
+      '</div>' +
+    '</div>' +
+    
+    '<div class="detail-section">' +
+      '<h3>💼 Warunki oferty (z dokumentu)</h3>' +
+      conditionsBlock +
+    '</div>' +
+    
+    '<div class="detail-section">' +
+      '<h3>📊 Wynik symulacji (po zmianach)</h3>' +
+      (baseline ? renderDeltaBlock(sim, baseline) : '') +
+      '<div class="stat-row"><span class="stat-label">Pierwsza rata</span><span class="stat-value">' + fmt(sim.firstRate, 2) + ' zł</span></div>' +
+      '<div class="stat-row"><span class="stat-label">Rata po 5Y</span><span class="stat-value">' + fmt(sim.rateAfter5y, 2) + ' zł</span></div>' +
+      '<div class="stat-row"><span class="stat-label">Łączne odsetki</span><span class="stat-value">' + fmt(sim.totalInterest, 0) + ' zł</span></div>' +
+      '<div class="stat-row"><span class="stat-label">Ubezpieczenia</span><span class="stat-value">' + fmt(sim.totalInsurance, 0) + ' zł</span></div>' +
+      (sim.totalCompensation > 0 ? '<div class="stat-row"><span class="stat-label" style="color:var(--bad)">Rekompensata art.40</span><span class="stat-value" style="color:var(--bad)">' + fmt(sim.totalCompensation, 0) + ' zł</span></div>' : '') +
+      '<div class="stat-row"><span class="stat-label">Faktyczny okres</span><span class="stat-value">' + sim.actualMonths + ' mies.' + (sim.monthsSaved > 0 ? ' (-' + sim.monthsSaved + ')' : '') + '</span></div>' +
+      '<div class="stat-row"><span class="stat-label" style="color:var(--accent)"><strong>TCO</strong></span><span class="stat-value" style="color:var(--accent)"><strong>' + fmt(sim.tco, 0) + ' zł</strong></span></div>' +
+      '<div style="margin-top:12px"><button class="btn small primary" onclick="showSchedule(\'' + offer.id + '\')">📈 Pokaż harmonogram + wykres</button></div>' +
+    '</div>' +
+  '</div>';
+}
+
+// Blok pokazujący wpływ zmian vs baseline (czysta oferta: WIBOR=0, brak nadpłat, brak rezygnacji)
+function renderDeltaBlock(sim, baseline) {
+  const dFirstRate = sim.firstRate - baseline.firstRate;
+  const dInterest = sim.totalInterest - baseline.totalInterest;
+  const dTco = sim.tco - baseline.tco;
+  const dMonths = sim.actualMonths - baseline.actualMonths;
+  
+  // Jeśli wszystko zerowe - nie pokazuj
+  if (Math.abs(dFirstRate) < 0.5 && Math.abs(dTco) < 1 && Math.abs(dMonths) < 1) {
+    return '<div style="font-size:11px;color:var(--text-dim);margin-bottom:10px;padding:8px;background:var(--bg);border:1px solid var(--border)">Brak modyfikacji vs baseline (WIBOR=0, brak nadpłat, brak rezygnacji)</div>';
+  }
+  
+  function deltaCell(value, label, isMoney) {
+    const isBetter = value < 0;
+    const color = isBetter ? 'var(--good)' : 'var(--bad)';
+    const sign = value > 0 ? '+' : '';
+    const formatted = isMoney ? Math.round(value).toLocaleString('pl-PL') + ' zł' : value + ' mies.';
+    return '<div style="flex:1;min-width:140px;padding:6px 8px;background:var(--bg);border:1px solid var(--border)">' +
+      '<div style="font-size:9px;text-transform:uppercase;color:var(--text-dim);letter-spacing:1px">' + label + '</div>' +
+      '<div style="font-size:13px;color:' + color + ';font-weight:bold;margin-top:2px">' + sign + formatted + '</div>' +
+      '</div>';
+  }
+  
+  return '<div style="margin-bottom:14px">' +
+    '<div style="font-size:10px;text-transform:uppercase;color:var(--accent);letter-spacing:1.5px;margin-bottom:6px">⚖ Wpływ zmian vs baseline</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+      deltaCell(dFirstRate, 'Δ Rata 1', true) +
+      deltaCell(dMonths, 'Δ Liczba rat', false) +
+      deltaCell(dInterest, 'Δ Odsetki', true) +
+      deltaCell(dTco, 'Δ TCO', true) +
+    '</div>' +
+    '<div style="font-size:10px;color:var(--text-dim);margin-top:6px">Baseline: WIBOR=0, brak nadpłat, brak rezygnacji. ' +
+      'Bazowo: rata ' + fmt(baseline.firstRate, 0) + ' zł · ' + baseline.actualMonths + ' rat · odsetki ' + fmt(baseline.totalInterest, 0) + ' zł · TCO ' + fmt(baseline.tco, 0) + ' zł.' +
+    '</div>' +
+  '</div>';
+}
+
+function renderHeatmap() {
+  const shocks = [-2, -1, 0, 1, 2, 3];
+  const params = getCurrentParams();
+  
+  const baselineRows = DATA.offers.map(function(offer) {
+    const p = Object.assign({}, params, { wiborShock: 0 });
+    return { offer: offer, tco: simulate(offer, p).tco };
+  }).sort(function(a, b) { return a.tco - b.tco; }).slice(0, 6);
+  
+  const matrix = baselineRows.map(function(row) {
+    return shocks.map(function(shock) {
+      const p = Object.assign({}, params, { wiborShock: shock / 100 });
+      return simulate(row.offer, p).tco;
+    });
+  });
+  
+  const allValues = matrix.reduce(function(a, b) { return a.concat(b); }, []);
+  const minVal = Math.min.apply(null, allValues);
+  const maxVal = Math.max.apply(null, allValues);
+  
+  function colorFor(val) {
+    const t = (val - minVal) / (maxVal - minVal || 1);
+    const r = Math.round(74 + (239 - 74) * t);
+    const g = Math.round(222 - (222 - 68) * t);
+    const b = Math.round(128 - (128 - 68) * t);
+    return 'rgba(' + r + ', ' + g + ', ' + b + ', 0.18)';
+  }
+  
+  let html = '<thead><tr><th style="text-align:left">Bank</th>';
+  shocks.forEach(function(s) { html += '<th>' + (s >= 0 ? '+' : '') + s + ' pp</th>'; });
+  html += '</tr></thead><tbody>';
+  
+  baselineRows.forEach(function(row, i) {
+    html += '<tr><td style="text-align:left;color:var(--accent);font-size:11px">' + row.offer.bank + '<br><span style="color:var(--text-faint);font-size:9px">' + row.offer.product_name.substring(0, 30) + '...</span></td>';
+    matrix[i].forEach(function(val) {
+      html += '<td class="cell" style="background:' + colorFor(val) + '">' + fmt(val, 0) + '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('heatmap').innerHTML = html;
+}
+
+window.toggleExpand = function(offerId) {
+  if (expandedOffers.has(offerId)) expandedOffers.delete(offerId);
+  else expandedOffers.add(offerId);
+  renderTable();
+};
+
+window.updateOverride = function(offerId, key, field, value) {
+  if (!offerOverrides[offerId]) offerOverrides[offerId] = {};
+  if (!offerOverrides[offerId][key]) offerOverrides[offerId][key] = {};
+  offerOverrides[offerId][key][field] = value;
+  storage.save();
+  renderTable();
+  updateStorageStatus();
+};
+
+window.resetOverrides = function(offerId) {
+  delete offerOverrides[offerId];
+  storage.save();
+  renderTable();
+  updateStorageStatus();
+};
+
+window.editOffer = function(offerId) {
+  const offer = DATA.offers.find(function(o) { return o.id === offerId; });
+  if (!offer) return;
+  editingOfferId = offerId;
+  
+  document.getElementById('modalTitle').textContent = 'Edycja oferty';
+  document.getElementById('modalSub').textContent = offer.bank + ' — ' + offer.product_name;
+  document.getElementById('modalDeleteBtn').style.display = offer._custom ? 'block' : 'none';
+  
+  document.getElementById('f_bank').value = offer.bank;
+  document.getElementById('f_product').value = offer.product_name;
+  document.getElementById('f_loan').value = offer.loan_amount;
+  document.getElementById('f_propValue').value = DATA.loan_params.property_value || 1035000;
+  document.getElementById('f_term').value = offer.term_months;
+  document.getElementById('f_rateType').value = offer.rate_type;
+  document.getElementById('f_aprc').value = (offer.aprc * 100).toFixed(2);
+  
+  const fixedPeriod = offer.interest_periods.find(function(p) { return p.type === 'fixed'; });
+  const variablePeriod = offer.interest_periods.find(function(p) { return p.type === 'variable'; });
+  
+  if (fixedPeriod) document.getElementById('f_fixedRate').value = (fixedPeriod.nominal_rate * 100).toFixed(2);
+  if (variablePeriod) {
+    document.getElementById('f_margin').value = (variablePeriod.margin * 100).toFixed(2);
+    document.getElementById('f_wibor').value = (variablePeriod.reference_value * 100).toFixed(2);
+    document.getElementById('f_wiborType').value = variablePeriod.reference_rate;
+  }
+  
+  document.getElementById('f_commission').value = offer.upfront_costs.commission || 0;
+  document.getElementById('f_valuation').value = offer.upfront_costs.property_valuation || 0;
+  document.getElementById('f_otherUpfront').value = (offer.upfront_costs.total || 0) - (offer.upfront_costs.commission || 0) - (offer.upfront_costs.property_valuation || 0);
+  
+  const propIns = offer.recurring_costs.property_insurance;
+  if (propIns) {
+    document.getElementById('f_propInsRate').value = (propIns.rate * 100).toFixed(4);
+    document.getElementById('f_propInsBase').value = propIns.base;
+    document.getElementById('f_propInsFreq').value = propIns.frequency;
+  }
+  
+  const lifeInsList = offer.recurring_costs.life_insurance || [];
+  const lifeInsMonthly = lifeInsList.find(function(s) { return s.type === 'monthly_pct'; });
+  if (lifeInsMonthly) {
+    document.getElementById('f_lifeInsType').value = lifeInsMonthly.base === 'loan_amount' ? 'monthly_pct_loan' : 'monthly_pct';
+    document.getElementById('f_lifeInsRate').value = (lifeInsMonthly.rate * 100).toFixed(3);
+    document.getElementById('f_lifeInsMonths').value = lifeInsMonthly.to_month - lifeInsMonthly.from_month + 1;
+  } else {
+    document.getElementById('f_lifeInsType').value = 'none';
+  }
+  
+  toggleFixedSection();
+  document.getElementById('offerModal').classList.add('visible');
+};
+
+function openNewOfferModal() {
+  editingOfferId = null;
+  document.getElementById('modalTitle').textContent = 'Nowa oferta';
+  document.getElementById('modalSub').textContent = 'Wprowadź parametry — model przeliczy się automatycznie';
+  document.getElementById('modalDeleteBtn').style.display = 'none';
+  
+  const defaults = {
+    f_bank: '', f_product: '', f_loan: 800000, f_propValue: 1035000, f_term: 300,
+    f_rateType: 'variable', f_aprc: '6.00', f_fixedRate: '5.95',
+    f_margin: '1.55', f_wibor: '3.89', f_wiborType: 'WIBOR_6M',
+    f_commission: 0, f_valuation: 700, f_otherUpfront: 0,
+    f_propInsRate: '0.08', f_propInsBase: 'loan_amount', f_propInsFreq: 'yearly',
+    f_lifeInsType: 'monthly_pct', f_lifeInsRate: '0.035', f_lifeInsMonths: 300,
+    f_penPropIns: '0.10', f_penLifeIns: '0.20', f_penAccount: '0.50'
+  };
+  Object.keys(defaults).forEach(function(k) { document.getElementById(k).value = defaults[k]; });
+  
+  toggleFixedSection();
+  document.getElementById('offerModal').classList.add('visible');
+}
+
+function toggleFixedSection() {
+  const isFixed = document.getElementById('f_rateType').value === 'fixed_then_variable';
+  document.getElementById('fixedSection').style.display = isFixed ? 'block' : 'none';
+}
+
+function saveOffer() {
+  const bank = document.getElementById('f_bank').value.trim();
+  const product = document.getElementById('f_product').value.trim();
+  if (!bank || !product) {
+    alert('Bank i nazwa produktu są wymagane');
+    return;
+  }
+  
+  const rateType = document.getElementById('f_rateType').value;
+  const term = parseInt(document.getElementById('f_term').value);
+  const margin = parseFloat(document.getElementById('f_margin').value) / 100;
+  const wibor = parseFloat(document.getElementById('f_wibor').value) / 100;
+  const wiborType = document.getElementById('f_wiborType').value;
+  
+  const periods = [];
+  if (rateType === 'fixed_then_variable') {
+    const fixedRate = parseFloat(document.getElementById('f_fixedRate').value) / 100;
+    periods.push({ from_month: 1, to_month: 60, type: 'fixed', nominal_rate: fixedRate });
+    periods.push({ from_month: 61, to_month: term, type: 'variable', margin: margin, reference_rate: wiborType, reference_value: wibor, nominal_rate: margin + wibor });
+  } else {
+    periods.push({ from_month: 1, to_month: term, type: 'variable', margin: margin, reference_rate: wiborType, reference_value: wibor, nominal_rate: margin + wibor });
+  }
+  
+  const commission = parseFloat(document.getElementById('f_commission').value) || 0;
+  const valuation = parseFloat(document.getElementById('f_valuation').value) || 0;
+  const otherUpfront = parseFloat(document.getElementById('f_otherUpfront').value) || 0;
+  const totalUpfront = commission + valuation + otherUpfront;
+  
+  const propInsRate = parseFloat(document.getElementById('f_propInsRate').value) / 100;
+  const propInsBase = document.getElementById('f_propInsBase').value;
+  const propInsFreq = document.getElementById('f_propInsFreq').value;
+  
+  const lifeInsType = document.getElementById('f_lifeInsType').value;
+  const lifeInsRate = parseFloat(document.getElementById('f_lifeInsRate').value) / 100;
+  const lifeInsMonths = parseInt(document.getElementById('f_lifeInsMonths').value);
+  
+  const lifeInsArr = [];
+  if (lifeInsType !== 'none') {
+    lifeInsArr.push({
+      from_month: 1,
+      to_month: lifeInsMonths,
+      type: 'monthly_pct',
+      rate: lifeInsRate,
+      base: lifeInsType === 'monthly_pct_loan' ? 'loan_amount' : 'outstanding_balance'
+    });
+  }
+  
+  const loan = parseFloat(document.getElementById('f_loan').value);
+  const r = periods[0].nominal_rate / 12;
+  const calcPmt = r === 0 ? loan/term : loan * r * Math.pow(1+r,term) / (Math.pow(1+r,term)-1);
+  
+  const newOffer = {
+    id: editingOfferId || ('custom_' + Date.now()),
+    bank: bank, product_name: product,
+    rate_type: rateType,
+    loan_amount: loan,
+    ltv: loan / parseFloat(document.getElementById('f_propValue').value),
+    term_months: term,
+    interest_periods: periods,
+    aprc: parseFloat(document.getElementById('f_aprc').value) / 100,
+    monthly_payment_source: [{ from_month: 1, to_month: term, amount: calcPmt }],
+    upfront_costs: {
+      commission: commission, property_valuation: valuation,
+      other: otherUpfront, total: totalUpfront
+    },
+    recurring_costs: {
+      property_insurance: {
+        rate: propInsRate, base: propInsBase, frequency: propInsFreq,
+        from_month: 1, to_month: term,
+        source_type: 'bank', required: 'bank_or_own'
+      },
+      life_insurance: lifeInsArr
+    },
+    totals_from_source: { total_to_pay: 0, total_costs: 0, total_interest: 0, _calculated: true },
+    conditions: {
+      required_products: [],
+      penalties: [
+        { trigger: 'drop_property_insurance', effect: 'margin_increase_pp', value: parseFloat(document.getElementById('f_penPropIns').value) / 100 },
+        { trigger: 'drop_life_insurance', effect: 'margin_increase_pp', value: parseFloat(document.getElementById('f_penLifeIns').value) / 100 },
+        { trigger: 'criteria_check_failed', effect: 'rate_increase_pp', value: parseFloat(document.getElementById('f_penAccount').value) / 100 }
+      ],
+      early_repayment_fee: { fee: 0, period_months: term }
+    },
+    _custom: true
+  };
+  
+  if (editingOfferId) {
+    const idx = DATA.offers.findIndex(function(o) { return o.id === editingOfferId; });
+    if (idx > -1) {
+      newOffer._custom = DATA.offers[idx]._custom || newOffer._custom;
+      DATA.offers[idx] = newOffer;
+    }
+  } else {
+    DATA.offers.push(newOffer);
+  }
+  
+  storage.save();
+  closeModal();
+  renderTable();
+  updateStorageStatus();
+}
+
+function deleteOffer() {
+  if (!editingOfferId) return;
+  if (!confirm('Usunąć tę ofertę?')) return;
+  DATA.offers = DATA.offers.filter(function(o) { return o.id !== editingOfferId; });
+  delete offerOverrides[editingOfferId];
+  storage.save();
+  closeModal();
+  renderTable();
+  updateStorageStatus();
+}
+
+function closeModal() {
+  document.getElementById('offerModal').classList.remove('visible');
+  editingOfferId = null;
+}
+
+// ============= HARMONOGRAM (modal) =============
+
+let currentScheduleOfferId = null;
+
+window.showSchedule = function(offerId) {
+  const offer = DATA.offers.find(function(o) { return o.id === offerId; });
+  if (!offer) return;
+  currentScheduleOfferId = offerId;
+  
+  const params = getCurrentParams();
+  const sim = simulate(offer, params);
+  
+  document.getElementById('scheduleModalTitle').textContent = offer.bank + ' — Harmonogram';
+  document.getElementById('scheduleModalSub').textContent = offer.product_name;
+  
+  // Summary
+  const tcoEl = document.getElementById('scheduleSummary');
+  tcoEl.innerHTML = 
+    statBox('Pierwsza rata', fmt(sim.firstRate, 0) + ' zł') +
+    statBox('Liczba rat', sim.actualMonths + (sim.monthsSaved > 0 ? ' (-' + sim.monthsSaved + ')' : '')) +
+    statBox('Łączne odsetki', fmt(sim.totalInterest, 0) + ' zł') +
+    statBox('Nadpłaty', fmt(sim.totalOverpayments, 0) + ' zł') +
+    statBox('Ubezp.', fmt(sim.totalInsurance, 0) + ' zł') +
+    (sim.totalCompensation > 0 ? statBox('Rekompensata', fmt(sim.totalCompensation, 0) + ' zł', 'bad') : '') +
+    statBox('TCO', fmt(sim.tco, 0) + ' zł', 'accent');
+  
+  // Wykres
+  document.getElementById('scheduleChart').innerHTML = renderScheduleChart(sim.schedule);
+  
+  // Tabela roczna
+  document.getElementById('scheduleYearlyTable').innerHTML = renderYearlyTable(sim.schedule);
+  
+  // Tabela miesięczna
+  document.getElementById('scheduleMonthlyTable').innerHTML = renderMonthlyTable(sim.schedule);
+  
+  document.getElementById('scheduleModal').classList.add('visible');
+};
+
+function statBox(label, value, color) {
+  const colorStyle = color === 'accent' ? 'color: var(--accent);' : (color === 'bad' ? 'color: var(--bad);' : '');
+  return '<div style="background: var(--bg); border: 1px solid var(--border); padding: 8px 12px;">' +
+    '<div style="font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim);">' + label + '</div>' +
+    '<div style="font-size: 14px; font-variant-numeric: tabular-nums; ' + colorStyle + '"><strong>' + value + '</strong></div>' +
+    '</div>';
+}
+
+function renderScheduleChart(schedule) {
+  if (schedule.length === 0) return '<div style="color: var(--text-dim);">Brak danych</div>';
+  
+  const w = 900, h = 280, padL = 50, padR = 40, padT = 10, padB = 30;
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+  
+  const n = schedule.length;
+  const maxPayment = Math.max(...schedule.map(s => s.payment + s.overpayment));
+  const initialBalance = schedule[0].balance + schedule[0].principal + schedule[0].overpayment;
+  
+  // Bary - sample co N miesięcy żeby nie było zbyt gęsto
+  const sampleStep = Math.max(1, Math.floor(n / 80));
+  const samples = [];
+  for (let i = 0; i < n; i += sampleStep) {
+    samples.push(schedule[i]);
+  }
+  if (samples[samples.length - 1] !== schedule[n - 1]) samples.push(schedule[n - 1]);
+  
+  const barW = chartW / samples.length * 0.8;
+  
+  let bars = '';
+  let balanceLine = '';
+  
+  samples.forEach(function(s, i) {
+    const x = padL + (i + 0.5) * (chartW / samples.length);
+    const interestH = (s.interest / maxPayment) * chartH;
+    const principalH = (s.principal / maxPayment) * chartH;
+    const overpayH = (s.overpayment / maxPayment) * chartH;
+    
+    let yBase = padT + chartH;
+    
+    // odsetki (od dołu, pomarańczowy)
+    bars += '<rect x="' + (x - barW/2) + '" y="' + (yBase - interestH) + '" width="' + barW + '" height="' + interestH + '" fill="#f59e0b" opacity="0.85"/>';
+    yBase -= interestH;
+    
+    // kapitał (zielony)
+    bars += '<rect x="' + (x - barW/2) + '" y="' + (yBase - principalH) + '" width="' + barW + '" height="' + principalH + '" fill="#4ade80" opacity="0.85"/>';
+    yBase -= principalH;
+    
+    // nadpłata (niebieski)
+    if (overpayH > 0) {
+      bars += '<rect x="' + (x - barW/2) + '" y="' + (yBase - overpayH) + '" width="' + barW + '" height="' + overpayH + '" fill="#38bdf8" opacity="0.85"/>';
+    }
+    
+    // linia salda
+    const balanceY = padT + chartH - (s.balance / initialBalance) * chartH;
+    balanceLine += (i === 0 ? 'M' : 'L') + x + ' ' + balanceY + ' ';
+  });
+  
+  // Osie
+  let axes = '';
+  // Y axis - skala
+  for (let i = 0; i <= 5; i++) {
+    const y = padT + chartH - (i / 5) * chartH;
+    const val = (maxPayment * i / 5);
+    axes += '<line x1="' + padL + '" y1="' + y + '" x2="' + (w - padR) + '" y2="' + y + '" stroke="#2a2a2a" stroke-width="0.5"/>';
+    axes += '<text x="' + (padL - 5) + '" y="' + (y + 3) + '" fill="#888" font-size="9" text-anchor="end" font-family="JetBrains Mono, monospace">' + (val/1000).toFixed(1) + 'k</text>';
+  }
+  // X axis - lata
+  const yearStep = Math.max(1, Math.floor(n / 12 / 5));
+  for (let y = 0; y * 12 < n; y += yearStep) {
+    const x = padL + (y * 12 / n) * chartW;
+    axes += '<line x1="' + x + '" y1="' + padT + '" x2="' + x + '" y2="' + (padT + chartH) + '" stroke="#2a2a2a" stroke-width="0.5"/>';
+    axes += '<text x="' + x + '" y="' + (padT + chartH + 18) + '" fill="#888" font-size="9" text-anchor="middle" font-family="JetBrains Mono, monospace">' + y + 'r</text>';
+  }
+  
+  // Saldo - oś prawa
+  for (let i = 0; i <= 5; i++) {
+    const y = padT + chartH - (i / 5) * chartH;
+    const val = (initialBalance * i / 5);
+    axes += '<text x="' + (w - padR + 5) + '" y="' + (y + 3) + '" fill="#d4ff00" font-size="9" text-anchor="start" font-family="JetBrains Mono, monospace">' + (val/1000).toFixed(0) + 'k</text>';
+  }
+  
+  return '<svg width="100%" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet">' +
+    axes +
+    bars +
+    '<path d="' + balanceLine + '" stroke="#d4ff00" stroke-width="2" fill="none"/>' +
+    '</svg>';
+}
+
+function renderYearlyTable(schedule) {
+  if (schedule.length === 0) return '<div style="color: var(--text-dim);">Brak danych</div>';
+  
+  // Grupowanie po latach
+  const years = [];
+  for (let y = 0; y * 12 < schedule.length; y++) {
+    const slice = schedule.slice(y * 12, (y + 1) * 12);
+    if (slice.length === 0) continue;
+    years.push({
+      year: y + 1,
+      months: slice.length,
+      totalPayment: slice.reduce((s, r) => s + r.payment, 0),
+      totalInterest: slice.reduce((s, r) => s + r.interest, 0),
+      totalPrincipal: slice.reduce((s, r) => s + r.principal, 0),
+      totalOverpayment: slice.reduce((s, r) => s + r.overpayment, 0),
+      totalInsurance: slice.reduce((s, r) => s + r.insurance, 0),
+      totalCompensation: slice.reduce((s, r) => s + r.compensation, 0),
+      ratePctStart: slice[0].ratePct,
+      ratePctEnd: slice[slice.length - 1].ratePct,
+      paymentStart: slice[0].payment,
+      paymentEnd: slice[slice.length - 1].payment,
+      balanceEnd: slice[slice.length - 1].balance
+    });
+  }
+  
+  let html = '<table style="font-size: 11px;"><thead><tr>' +
+    '<th>Rok</th><th class="num">Stopa</th><th class="num">Rata pocz.</th><th class="num">Rata kon.</th>' +
+    '<th class="num">Suma odsetek</th><th class="num">Suma kapitału</th><th class="num">Nadpłaty</th><th class="num">Ubezp.</th><th class="num">Saldo na koniec</th>' +
+    '</tr></thead><tbody>';
+  
+  years.forEach(function(y) {
+    const rateChange = Math.abs(y.paymentEnd - y.paymentStart) > 1;
+    html += '<tr>' +
+      '<td><strong>' + y.year + '</strong></td>' +
+      '<td class="num">' + (y.ratePctStart * 100).toFixed(2) + '%' + (Math.abs(y.ratePctStart - y.ratePctEnd) > 0.0001 ? ' → ' + (y.ratePctEnd * 100).toFixed(2) + '%' : '') + '</td>' +
+      '<td class="num">' + fmt(y.paymentStart, 0) + '</td>' +
+      '<td class="num"' + (rateChange ? ' style="color:var(--warn)"' : '') + '>' + fmt(y.paymentEnd, 0) + '</td>' +
+      '<td class="num" style="color:var(--warn)">' + fmt(y.totalInterest, 0) + '</td>' +
+      '<td class="num" style="color:var(--good)">' + fmt(y.totalPrincipal, 0) + '</td>' +
+      '<td class="num" style="color:var(--info)">' + fmt(y.totalOverpayment, 0) + '</td>' +
+      '<td class="num">' + fmt(y.totalInsurance, 0) + '</td>' +
+      '<td class="num"><strong>' + fmt(y.balanceEnd, 0) + '</strong></td>' +
+      '</tr>';
+  });
+  
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderMonthlyTable(schedule) {
+  let html = '<thead style="position:sticky;top:0;z-index:1"><tr>' +
+    '<th>M</th><th class="num">Stopa</th><th class="num">Rata</th><th class="num">Odsetki</th><th class="num">Kapitał</th>' +
+    '<th class="num">Nadpłata</th><th class="num">Rekomp.</th><th class="num">Ubezp.</th><th class="num">Cashflow</th><th class="num">Saldo</th>' +
+    '</tr></thead><tbody>';
+  
+  schedule.forEach(function(s) {
+    const rowStyle = s.rateRecalculated ? ' style="background: rgba(212,255,0,0.05)"' : '';
+    html += '<tr' + rowStyle + '>' +
+      '<td>' + s.month + (s.inFixedPeriod ? ' <span style="color:var(--info);font-size:9px">[STAŁA]</span>' : '') + '</td>' +
+      '<td class="num">' + (s.ratePct * 100).toFixed(2) + '%</td>' +
+      '<td class="num">' + fmt(s.payment, 2) + '</td>' +
+      '<td class="num" style="color:var(--warn)">' + fmt(s.interest, 2) + '</td>' +
+      '<td class="num" style="color:var(--good)">' + fmt(s.principal, 2) + '</td>' +
+      '<td class="num" style="color:var(--info)">' + (s.overpayment > 0 ? fmt(s.overpayment, 2) : '—') + '</td>' +
+      '<td class="num" style="color:var(--bad)">' + (s.compensation > 0 ? fmt(s.compensation, 2) : '—') + '</td>' +
+      '<td class="num">' + fmt(s.insurance, 2) + '</td>' +
+      '<td class="num"><strong>' + fmt(s.cashflow, 2) + '</strong></td>' +
+      '<td class="num">' + fmt(s.balance, 0) + '</td>' +
+      '</tr>';
+  });
+  
+  html += '</tbody>';
+  return html;
+}
+
+function exportSchedule() {
+  if (!currentScheduleOfferId) return;
+  const offer = DATA.offers.find(function(o) { return o.id === currentScheduleOfferId; });
+  if (!offer) return;
+  
+  const params = getCurrentParams();
+  const sim = simulate(offer, params);
+  
+  let csv = 'Miesiac;Stopa%;Rata;Odsetki;Kapital;Nadplata;Rekompensata;Ubezpieczenie;Cashflow;Saldo\n';
+  sim.schedule.forEach(function(s) {
+    csv += s.month + ';' + (s.ratePct*100).toFixed(2) + ';' + s.payment.toFixed(2) + ';' + s.interest.toFixed(2) + ';' + s.principal.toFixed(2) + ';' + s.overpayment.toFixed(2) + ';' + s.compensation.toFixed(2) + ';' + s.insurance.toFixed(2) + ';' + s.cashflow.toFixed(2) + ';' + s.balance.toFixed(2) + '\n';
+  });
+  
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeName = (offer.bank + '_' + offer.product_name).replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
+  a.href = url;
+  a.download = 'harmonogram_' + safeName + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function closeScheduleModal() {
+  document.getElementById('scheduleModal').classList.remove('visible');
+  currentScheduleOfferId = null;
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = 'oferty_kredytow_' + date + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!imported.offers || !Array.isArray(imported.offers)) {
+        alert('Nieprawidłowy format pliku - brak tablicy "offers"');
+        return;
+      }
+      if (!confirm('Importować ' + imported.offers.length + ' ofert? To zastąpi obecne dane.')) return;
+      DATA = imported;
+      storage.save();
+      renderTable();
+      updateStorageStatus();
+      alert('Zaimportowano ' + imported.offers.length + ' ofert');
+    } catch (err) {
+      alert('Błąd parsowania JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetToOriginal() {
+  if (!confirm('Przywrócić oryginalne dane? Twoje zmiany i własne oferty zostaną utracone.')) return;
+  DATA = JSON.parse(JSON.stringify(ORIGINAL_DATA));
+  offerOverrides = {};
+  storage.clear();
+  storage.save();
+  renderTable();
+  updateStorageStatus();
+}
+
+document.querySelectorAll('th[data-sort]').forEach(function(th) {
+  th.addEventListener('click', function() {
+    const col = th.dataset.sort;
+    if (currentSort.col === col) currentSort.asc = !currentSort.asc;
+    else { currentSort.col = col; currentSort.asc = true; }
+    renderTable();
+  });
+});
+
+document.getElementById('wiborShock').addEventListener('input', function(e) {
+  const v = parseFloat(e.target.value);
+  document.getElementById('wiborShockVal').textContent = (v >= 0 ? '+' : '') + v.toFixed(2) + ' p.p.';
+  renderTable();
+  document.querySelectorAll('.scenario-buttons .btn').forEach(function(b) { b.classList.remove('active'); });
+});
+
+['loanAmount', 'termMonths', 'overpayMonthly', 'overpayLump', 'overpayMonth', 'overpayMode', 'overpayBehavior', 'recalcFreq', 'overpayPctOfPayment', 'compensationEnabled', 'compensationRatePct', 'compensationFixedEnabled'].forEach(function(id) {
+  document.getElementById(id).addEventListener('input', renderTable);
+  document.getElementById(id).addEventListener('change', renderTable);
+});
+
+// Pokazuj kontrolki REDUCE tylko dla mode=reduce
+function updateRecalcVisibility() {
+  const mode = document.getElementById('overpayMode').value;
+  const behavior = document.getElementById('overpayBehavior').value;
+  const isReduce = mode === 'reduce';
+  document.getElementById('recalcModeWrap').style.display = isReduce ? 'flex' : 'none';
+  document.getElementById('recalcFreqWrap').style.display = isReduce ? 'flex' : 'none';
+  // overpayPctWrap tylko gdy REDUCE i behavior=pct
+  document.getElementById('overpayPctWrap').style.display = (isReduce && behavior === 'pct_of_payment') ? 'flex' : 'none';
+}
+document.getElementById('overpayMode').addEventListener('change', updateRecalcVisibility);
+document.getElementById('overpayBehavior').addEventListener('change', updateRecalcVisibility);
+updateRecalcVisibility();
+
+document.querySelectorAll('.scenario-buttons .btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.scenario-buttons .btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    const shock = btn.dataset.shock;
+    document.getElementById('wiborShock').value = shock;
+    document.getElementById('wiborShockVal').textContent = (shock >= 0 ? '+' : '') + parseFloat(shock).toFixed(2) + ' p.p.';
+    renderTable();
+  });
+});
+
+document.getElementById('addOfferBtn').addEventListener('click', openNewOfferModal);
+document.getElementById('exportBtn').addEventListener('click', exportData);
+document.getElementById('importBtn').addEventListener('click', function() { document.getElementById('importFile').click(); });
+document.getElementById('importFile').addEventListener('change', function(e) {
+  if (e.target.files[0]) importData(e.target.files[0]);
+  e.target.value = '';
+});
+document.getElementById('resetBtn').addEventListener('click', resetToOriginal);
+
+document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
+document.getElementById('modalSaveBtn').addEventListener('click', saveOffer);
+document.getElementById('modalDeleteBtn').addEventListener('click', deleteOffer);
+document.getElementById('f_rateType').addEventListener('change', toggleFixedSection);
+
+document.getElementById('offerModal').addEventListener('click', function(e) {
+  if (e.target.id === 'offerModal') closeModal();
+});
+
+// Modal harmonogramu
+document.getElementById('scheduleCloseBtn').addEventListener('click', closeScheduleModal);
+document.getElementById('exportScheduleBtn').addEventListener('click', exportSchedule);
+document.getElementById('scheduleModal').addEventListener('click', function(e) {
+  if (e.target.id === 'scheduleModal') closeScheduleModal();
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeModal();
+    closeScheduleModal();
+  }
+});
+
+storage.init();
+storage.load();
+updateStorageStatus();
+renderTable();
+</script>
+</body>
+</html>
